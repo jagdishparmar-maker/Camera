@@ -8,13 +8,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Image,
+  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
+  UIManager,
   View,
 } from "react-native";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import DateTimePicker, {
   DateTimePickerAndroid,
 } from "@react-native-community/datetimepicker";
@@ -39,6 +45,21 @@ import {
 
 const COLLECTION = "vehicles";
 
+function formatCheckInDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export default function HomeScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -47,7 +68,18 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeTab, setTypeTab] = useState<"Inward" | "Outward">("Inward");
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const pagerRef = useRef<PagerView>(null);
+
+  const toggleSearch = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setSearchExpanded((prev) => !prev);
+  }, []);
+
+  const collapseSearch = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setSearchExpanded(false);
+  }, []);
   const [exitVehicle, setExitVehicle] = useState<Vehicle | null>(null);
   const [exitCheckOutDate, setExitCheckOutDate] = useState(new Date());
   const [exitRemarks, setExitRemarks] = useState("");
@@ -170,35 +202,49 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <SafeAreaView edges={["top"]} style={styles.safeTop}>
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Avatar.Text size={40} label="FM" style={styles.avatar} />
-            <View>
-              <Text variant="titleMedium" style={styles.headerName}>
-                Fleet Manager
-              </Text>
-              <Text variant="bodySmall" style={styles.headerSub}>
-                {vehicles.length} vehicles
-              </Text>
+          {!searchExpanded && (
+            <View style={styles.headerLeft}>
+              <Avatar.Text size={40} label="FM" style={styles.avatar} />
+              <View>
+                <Text variant="titleMedium" style={styles.headerName}>
+                  Fleet Manager
+                </Text>
+                <Text variant="bodySmall" style={styles.headerSub}>
+                  {vehicles.length} vehicles
+                </Text>
+              </View>
             </View>
+          )}
+          <View style={[styles.headerRight, searchExpanded && styles.headerRightExpanded]}>
+            {searchExpanded ? (
+              <>
+                <Searchbar
+                  placeholder="Track vehicle..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  style={styles.headerSearchbar}
+                  inputStyle={styles.searchInput}
+                  iconColor={theme.colors.onSurfaceVariant}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  elevation={0}
+                  autoFocus
+                />
+                <IconButton
+                  icon="close"
+                  size={22}
+                  iconColor={theme.colors.onSurface}
+                  onPress={collapseSearch}
+                  style={styles.headerIconBtn}
+                />
+              </>
+            ) : (
+              <>
+                <IconButton icon="bell-outline" size={22} iconColor={theme.colors.onSurface} style={styles.headerIconBtn} />
+                <IconButton icon="magnify" size={22} iconColor={theme.colors.onSurface} onPress={toggleSearch} style={styles.headerIconBtn} />
+                <IconButton icon="dots-vertical" size={22} iconColor={theme.colors.onSurface} style={styles.headerIconBtn} />
+              </>
+            )}
           </View>
-          <View style={styles.headerIcons}>
-            <IconButton icon="bell-outline" size={22} iconColor={theme.colors.onSurface} />
-            <IconButton icon="qrcode-scan" size={22} iconColor={theme.colors.onSurface} />
-            <IconButton icon="dots-vertical" size={22} iconColor={theme.colors.onSurface} />
-          </View>
-        </View>
-
-        <View style={styles.searchWrap}>
-          <Searchbar
-            placeholder="Track vehicle..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={styles.searchbar}
-            inputStyle={styles.searchInput}
-            iconColor={theme.colors.onSurfaceVariant}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            elevation={0}
-          />
         </View>
 
         <View style={styles.hero}>
@@ -445,6 +491,11 @@ function VehicleList({
                         <Text variant="bodySmall" style={styles.cardMeta} numberOfLines={1}>
                           {item.Type ?? "—"} • {item.Transport || "—"}
                         </Text>
+                        {item.Check_In_Date && (
+                          <Text variant="labelSmall" style={[styles.cardCheckIn, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+                            {formatCheckInDate(item.Check_In_Date)}
+                          </Text>
+                        )}
                       </View>
                       <Chip
                         style={[styles.statusChip, { backgroundColor: statusColor }]}
@@ -482,13 +533,14 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 0 },
+  headerRightExpanded: { flex: 1, minWidth: 0 },
+  headerSearchbar: { flex: 1, borderRadius: 12, backgroundColor: "#3A3A3C", elevation: 0, marginRight: 4 },
+  headerIconBtn: { margin: 0 },
   avatar: { backgroundColor: "#3A3A3C" },
   headerName: { color: "#FFFFFF", fontWeight: "600" },
   headerSub: { color: "#A0A0A0", marginTop: 2 },
-  headerIcons: { flexDirection: "row", gap: 0 },
-  searchWrap: { paddingHorizontal: 20, paddingBottom: 16 },
-  searchbar: { borderRadius: 16, backgroundColor: "#3A3A3C", elevation: 0 },
   searchInput: { color: "#FFFFFF" },
   hero: { paddingHorizontal: 20, paddingBottom: 16 },
   heroContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
@@ -528,6 +580,7 @@ const styles = StyleSheet.create({
   },
   cardInfo: { flex: 1, minWidth: 0 },
   cardMeta: { marginTop: 2, color: "#A0A0A0", fontSize: 12 },
+  cardCheckIn: { marginTop: 2, fontSize: 11, opacity: 0.9 },
   statusChip: { marginLeft: 8 },
   statusChipText: { fontWeight: "600", fontSize: 10 },
   fab: {

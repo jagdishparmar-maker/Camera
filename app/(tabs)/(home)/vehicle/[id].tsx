@@ -1,31 +1,36 @@
-import { getOne, update } from "@/lib/database";
+import { getFullList, getOne, update } from "@/lib/database";
 import { getFileUrl } from "@/lib/storage";
 import type { Vehicle, VehicleStatus } from "@/lib/vehicle-types";
 import { computeStatus, formatDateTime, STATUS_COLORS, STATUS_TEXT_COLORS } from "@/lib/vehicle-types";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useNavigation } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import {
+  Alert,
   Dimensions,
   Image,
   Modal,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
-  Button,
   Chip,
+  Icon,
   IconButton,
   List,
+  Surface,
   Text,
-  TextInput,
   useTheme,
 } from "react-native-paper";
 
 const COLLECTION = "vehicles";
+const DOCK_COUNT = 10;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 function DetailItem({
@@ -55,10 +60,11 @@ export default function VehicleDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [fullImageVisible, setFullImageVisible] = useState(false);
   const [assignDockVisible, setAssignDockVisible] = useState(false);
-  const [dockNumber, setDockNumber] = useState("");
+  const [vehiclesByDock, setVehiclesByDock] = useState<Record<number, Vehicle>>({});
   const [assigning, setAssigning] = useState(false);
-  const [assignError, setAssignError] = useState<string | null>(null);
+  const [loadingDocks, setLoadingDocks] = useState(false);
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
 
   const loadVehicle = useCallback(async () => {
     if (!id) return;
@@ -80,38 +86,118 @@ export default function VehicleDetailScreen() {
     loadVehicle();
   }, [loadVehicle]);
 
-  const handleAssignDock = useCallback(async () => {
-    if (!id) return;
-    const num = parseInt(dockNumber.trim(), 10);
-    if (isNaN(num) || num < 1 || num > 10) {
-      setAssignError("Enter a dock number between 1 and 10");
-      return;
-    }
-    setAssignError(null);
-    setAssigning(true);
+  const handleAssignDock = useCallback(
+    async (dockNum: number) => {
+      if (!id) return;
+      setAssigning(true);
+      try {
+        const dockInTime = new Date().toISOString();
+        await update<Vehicle>(COLLECTION, id, {
+          Assigned_Dock: dockNum,
+          Dock_In_DateTime: dockInTime,
+          status: "DockedIn",
+        });
+        setAssignDockVisible(false);
+        await loadVehicle();
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setAssigning(false);
+      }
+    },
+    [id, loadVehicle]
+  );
+
+  const getVehicleShareText = useCallback((v: Vehicle) => {
+    const lines = [
+      `Vehicle: ${v.vehicleno}`,
+      `Type: ${v.Type ?? "—"}`,
+      `Transport: ${v.Transport ?? "—"}`,
+      `Customer: ${v.Customer ?? "—"}`,
+      `Driver: ${v.Driver_Name ?? "—"}`,
+      v.Check_In_Date ? `Check In: ${formatDateTime(v.Check_In_Date)}` : null,
+      v.Assigned_Dock != null ? `Dock: ${v.Assigned_Dock}` : null,
+    ].filter(Boolean);
+    return lines.join("\n");
+  }, []);
+
+  const handleShare = useCallback(async () => {
+    if (!vehicle) return;
+    const shareText = getVehicleShareText(vehicle);
     try {
-      const dockInTime = new Date().toISOString();
-      await update<Vehicle>(COLLECTION, id, {
-        Assigned_Dock: num,
-        Dock_In_DateTime: dockInTime,
-        status: "DockedIn",
-      });
-      setAssignDockVisible(false);
-      setDockNumber("");
-      await loadVehicle();
+      if (vehicle.image && typeof vehicle.image === "string") {
+        const imageUrl = getFileUrl(vehicle, vehicle.image);
+        const filename = `vehicle-${vehicle.vehicleno.replace(/\s/g, "-")}.jpg`;
+        const cachePath = `${FileSystem.cacheDirectory}${filename}`;
+        await FileSystem.downloadAsync(imageUrl, cachePath);
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(cachePath, {
+            mimeType: "image/jpeg",
+            dialogTitle: shareText,
+          });
+        } else {
+          Share.share({ message: shareText, title: "Vehicle Details" });
+        }
+      } else {
+        Share.share({ message: shareText, title: "Vehicle Details" });
+      }
     } catch (err) {
       console.error(err);
-      setAssignError("Failed to assign dock. Please try again.");
-    } finally {
-      setAssigning(false);
+      Share.share({ message: shareText, title: "Vehicle Details" }).catch(() => {
+        Alert.alert("Error", "Could not open share dialog.");
+      });
     }
-  }, [id, dockNumber, loadVehicle]);
+  }, [vehicle, getVehicleShareText]);
 
-  const openAssignDock = useCallback(() => {
-    setAssignError(null);
-    setDockNumber(vehicle?.Assigned_Dock != null ? String(vehicle.Assigned_Dock) : "");
+  useEffect(() => {
+    if (!vehicle) return;
+    navigation.setOptions({
+      headerRight: () => (
+        <IconButton
+          icon="share-variant"
+          size={22}
+          iconColor="#FFFFFF"
+          onPress={handleShare}
+        />
+      ),
+    });
+  }, [vehicle, navigation, handleShare]);
+
+  const openAssignDock = useCallback(async () => {
     setAssignDockVisible(true);
-  }, [vehicle?.Assigned_Dock]);
+    setLoadingDocks(true);
+    try {
+      const list = await getFullList<Vehicle>(COLLECTION, {
+        expand: "Checked_In_By,Checked_Out_By",
+      });
+      const vehicles = Array.isArray(list) ? list : [];
+      const occupied = vehicles
+        .filter((v) => {
+          const dock = v.Assigned_Dock;
+          if (dock == null || dock < 1 || dock > DOCK_COUNT) return false;
+          const s =
+            v.status ??
+            computeStatus({
+              Check_Out_Date: v.Check_Out_Date,
+              Dock_Out_DateTime: v.Dock_Out_DateTime,
+              Assigned_Dock: v.Assigned_Dock,
+              Dock_In_DateTime: v.Dock_In_DateTime,
+            });
+          return s !== "CheckedOut";
+        })
+        .reduce<Record<number, Vehicle>>((acc, v) => {
+          acc[v.Assigned_Dock!] = v;
+          return acc;
+        }, {});
+      setVehiclesByDock(occupied);
+    } catch (err) {
+      console.error(err);
+      setVehiclesByDock({});
+    } finally {
+      setLoadingDocks(false);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -211,6 +297,17 @@ export default function VehicleDetailScreen() {
           />
         </List.Section>
         <List.Section>
+          <List.Subheader>Share</List.Subheader>
+          <List.Item
+            title="Share to WhatsApp, Facebook..."
+            description="Share image and vehicle details"
+            left={(props) => <List.Icon {...props} icon="share-variant" />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            onPress={handleShare}
+            style={styles.assignDockItem}
+          />
+        </List.Section>
+        <List.Section>
           <List.Subheader>Other</List.Subheader>
           <DetailItem label="Remarks" value={vehicle.Remarks} icon="note" />
           <DetailItem
@@ -267,64 +364,95 @@ export default function VehicleDetailScreen() {
 
       <Modal
         visible={assignDockVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => !assigning && setAssignDockVisible(false)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !assigning && setAssignDockVisible(false)}
+      >
+        <Pressable
+          style={styles.dialogBackdrop}
+          onPress={() => !assigning && setAssignDockVisible(false)}
         >
           <Pressable
-            style={styles.dialogBackdrop}
-            onPress={() => !assigning && setAssignDockVisible(false)}
+            style={[styles.dialogContent, { backgroundColor: theme.colors.surface }]}
+            onPress={(e) => e.stopPropagation()}
           >
-            <Pressable style={[styles.dialogContent, { backgroundColor: theme.colors.surface }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.dialogHeader}>
               <Text variant="titleMedium" style={[styles.dialogTitle, { color: theme.colors.onSurface }]}>
                 Assign Dock
               </Text>
-              <Text variant="bodyMedium" style={[styles.dialogSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                Enter dock number (1–10). Status will be set to Dock In & Dock In time will be updated.
-              </Text>
-              <TextInput
-                mode="outlined"
-                label="Dock Number"
-                value={dockNumber}
-                onChangeText={setDockNumber}
-                keyboardType="number-pad"
-                maxLength={2}
-                placeholder="1–10"
-                error={!!assignError}
-                disabled={assigning}
-                style={styles.dockInput}
-                outlineColor={theme.colors.outline}
-                activeOutlineColor={theme.colors.primary}
-                textColor={theme.colors.onSurface}
+              <IconButton
+                icon="close"
+                size={20}
+                iconColor={theme.colors.onSurfaceVariant}
+                onPress={() => !assigning && setAssignDockVisible(false)}
+                style={styles.dialogCloseBtn}
               />
-              {assignError && (
-                <Text variant="bodySmall" style={[styles.errorText, { color: theme.colors.error }]}>
-                  {assignError}
-                </Text>
-              )}
-              <View style={styles.dialogActions}>
-                <Button
-                  mode="outlined"
-                  onPress={() => !assigning && setAssignDockVisible(false)}
-                  disabled={assigning}
-                  style={styles.dialogButton}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleAssignDock}
-                  loading={assigning}
-                  disabled={assigning}
-                  icon="check"
-                  style={styles.dialogButton}
-                >
-                  Assign
-                </Button>
+            </View>
+            <Text variant="bodySmall" style={[styles.dialogSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+              Tap a free dock to assign {vehicle.vehicleno}
+            </Text>
+            {loadingDocks ? (
+              <View style={styles.dockGridLoader}>
+                <ActivityIndicator size="small" />
               </View>
-            </Pressable>
+            ) : (
+              <View style={styles.dockGrid}>
+                {Array.from({ length: DOCK_COUNT }, (_, i) => i + 1).map((dockNum) => {
+                  const occupiedVehicle = vehiclesByDock[dockNum];
+                  const isFree = !occupiedVehicle;
+                  return (
+                    <Pressable
+                      key={dockNum}
+                      onPress={() => isFree && !assigning && handleAssignDock(dockNum)}
+                      disabled={!isFree || assigning}
+                      style={({ pressed }) => [
+                        styles.dockSlot,
+                        pressed && isFree && styles.dockSlotPressed,
+                      ]}
+                    >
+                      <Surface
+                        style={[
+                          styles.dockSlotSurface,
+                          {
+                            backgroundColor: isFree
+                              ? theme.colors.primaryContainer
+                              : theme.colors.surfaceVariant,
+                            opacity: isFree ? 1 : 0.7,
+                          },
+                        ]}
+                        elevation={0}
+                      >
+                        <Text
+                          variant="labelMedium"
+                          style={[
+                            styles.dockSlotLabel,
+                            {
+                              color: isFree ? theme.colors.onPrimaryContainer : theme.colors.onSurfaceVariant,
+                            },
+                          ]}
+                        >
+                          DOCK{dockNum}
+                        </Text>
+                        {isFree ? (
+                          <Icon source="plus" size={14} color={theme.colors.primary} />
+                        ) : (
+                          <Text
+                            variant="labelSmall"
+                            style={{ color: theme.colors.onSurfaceVariant }}
+                            numberOfLines={1}
+                          >
+                            {occupiedVehicle.vehicleno}
+                          </Text>
+                        )}
+                      </Surface>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </Pressable>
-        </Modal>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -373,17 +501,32 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 360,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
   },
-  dialogTitle: { marginBottom: 8, fontWeight: "600" },
-  dialogSubtitle: { marginBottom: 16 },
-  dockInput: { marginBottom: 8 },
-  errorText: { marginBottom: 8 },
-  dialogActions: {
+  dialogHeader: {
     flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-    marginTop: 8,
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
   },
-  dialogButton: { minWidth: 100 },
+  dialogTitle: { fontWeight: "600" },
+  dialogCloseBtn: { margin: -8 },
+  dialogSubtitle: { marginBottom: 12 },
+  dockGridLoader: { paddingVertical: 32, alignItems: "center" },
+  dockGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  dockSlot: { width: "31%" },
+  dockSlotPressed: { opacity: 0.8 },
+  dockSlotSurface: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 52,
+  },
+  dockSlotLabel: { fontWeight: "600", marginBottom: 2 },
 });

@@ -1,4 +1,21 @@
-import { MD3DarkTheme } from "react-native-paper";
+import { configureFonts, MD3DarkTheme } from "react-native-paper";
+
+const geistFontConfig = {
+  fontFamily: "Geist_400Regular",
+  default: { fontFamily: "Geist_400Regular" },
+  labelSmall: { fontFamily: "GeistMono_400Regular" },
+  labelMedium: { fontFamily: "GeistMono_500Medium" },
+  labelLarge: { fontFamily: "GeistMono_500Medium" },
+  titleSmall: { fontFamily: "Geist_500Medium" },
+  titleMedium: { fontFamily: "Geist_500Medium" },
+  titleLarge: { fontFamily: "Geist_600SemiBold" },
+  headlineSmall: { fontFamily: "Geist_600SemiBold" },
+  headlineMedium: { fontFamily: "Geist_600SemiBold" },
+  headlineLarge: { fontFamily: "Geist_700Bold" },
+  displaySmall: { fontFamily: "Geist_700Bold" },
+  displayMedium: { fontFamily: "Geist_700Bold" },
+  displayLarge: { fontFamily: "Geist_700Bold" },
+};
 
 // Reference: package tracking app dark theme
 const primary = "#8CE02A"; // Vibrant lime green (accent)
@@ -10,6 +27,7 @@ const background = "#2C2C2E"; // Main app background
 export const appTheme = {
   ...MD3DarkTheme,
   dark: true,
+  fonts: configureFonts({ config: geistFontConfig }),
   colors: {
     ...MD3DarkTheme.colors,
     primary,

@@ -122,7 +122,7 @@ export default function DockScreen() {
           <Text variant="titleLarge" style={styles.headerTitle}>
             Dock Layout
           </Text>
-          <Text variant="bodyMedium" style={styles.headerSub}>
+          <Text variant="labelMedium" style={styles.headerSub}>
             DOCK1 – DOCK{DOCK_COUNT}
           </Text>
         </View>
@@ -259,40 +259,40 @@ const styles = StyleSheet.create({
   safeTop: { backgroundColor: "#2C2C2E" },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
+    paddingTop: 12,
+    paddingBottom: 0,
   },
-  headerTitle: { color: "#FFFFFF", fontWeight: "600" },
-  headerSub: { color: "#A0A0A0", marginTop: 4 },
+  headerTitle: { color: "#FFFFFF", fontWeight: "600", fontSize: 22 },
+  headerSub: { color: "#A0A0A0", marginTop: 2, fontSize: 12 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  scrollContent: { padding: 16, paddingBottom: 32 },
+  scrollContent: { paddingTop: 12, paddingHorizontal: 16, paddingBottom: 32 },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: 10,
   },
   dockPressable: { width: "48%" },
   dockPressed: { opacity: 0.9 },
   dockCard: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: "hidden",
     elevation: 0,
-    minHeight: 120,
+    minHeight: 110,
   },
-  dockContent: { padding: 14 },
+  dockContent: { padding: 12 },
   dockHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   dockBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 6,
   },
-  dockLabel: { fontWeight: "600", fontSize: 12 },
-  vehicleInfo: { gap: 4 },
+  dockLabel: { fontWeight: "600", fontSize: 11 },
+  vehicleInfo: { gap: 2 },
   dockOutOverlay: {
     position: "absolute",
     top: 0,
@@ -301,16 +301,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
+    borderRadius: 14,
     zIndex: 1,
   },
-  vehicleno: { fontWeight: "600" },
-  customer: { fontSize: 13 },
-  type: { marginTop: 4, fontWeight: "600" },
+  vehicleno: { fontWeight: "600", fontSize: 14 },
+  customer: { fontSize: 12 },
+  type: { marginTop: 2, fontWeight: "600", fontSize: 11 },
   emptyInfo: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
 });
