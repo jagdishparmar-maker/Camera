@@ -10,11 +10,26 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Set up PocketBase (optional - for backend features)
+
+   - [Download PocketBase](https://pocketbase.io/docs/) and run it locally, or use a hosted instance
+   - Copy `.env.example` to `.env` and set `EXPO_PUBLIC_POCKETBASE_URL` (default: `http://127.0.0.1:8090`)
+   - For physical devices, use your machine's local IP instead of localhost
+
+3. Start the app
 
    ```bash
    npx expo start
    ```
+
+## PocketBase Backend
+
+This project is configured to use [PocketBase](https://pocketbase.io/) for:
+
+- **Database** – CRUD via `lib/database.ts` (`getList`, `getOne`, `create`, `update`, `remove`)
+- **Realtime** – Subscriptions via `lib/realtime.ts` and `hooks/use-realtime.ts`
+- **File storage** – Upload files with `create()`/`update()`, get URLs with `getFileUrl()` from `lib/storage.ts`
+- **Auth** – `hooks/use-pocketbase-auth.ts` for sign in, sign up, sign out
 
 In the output, you'll find options to open the app in a
 
