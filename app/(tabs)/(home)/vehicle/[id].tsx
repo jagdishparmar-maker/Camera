@@ -11,6 +11,7 @@ import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -130,14 +131,31 @@ export default function VehicleDetailScreen() {
         const filename = `vehicle-${vehicle.vehicleno.replace(/\s/g, "-")}.jpg`;
         const cachePath = `${FileSystem.cacheDirectory}${filename}`;
         await FileSystem.downloadAsync(imageUrl, cachePath);
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(cachePath, {
-            mimeType: "image/jpeg",
-            dialogTitle: shareText,
+        const fileUrl = cachePath.startsWith("file://") ? cachePath : `file://${cachePath}`;
+        if (Platform.OS === "ios") {
+          await Share.share({
+            message: shareText,
+            url: fileUrl,
+            title: "Vehicle Details",
           });
         } else {
-          Share.share({ message: shareText, title: "Vehicle Details" });
+          try {
+            await Share.share({
+              message: shareText,
+              url: fileUrl,
+              title: "Vehicle Details",
+            });
+          } catch {
+            const isAvailable = await Sharing.isAvailableAsync();
+            if (isAvailable) {
+              await Sharing.shareAsync(cachePath, {
+                mimeType: "image/jpeg",
+                dialogTitle: shareText,
+              });
+            } else {
+              Share.share({ message: shareText, title: "Vehicle Details" });
+            }
+          }
         }
       } else {
         Share.share({ message: shareText, title: "Vehicle Details" });

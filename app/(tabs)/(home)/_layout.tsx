@@ -34,6 +34,13 @@ export default function HomeStackLayout() {
           headerBackVisible: true,
         })}
       />
+      <Stack.Screen
+        name="all"
+        options={{
+          title: "All Vehicles",
+          headerBackVisible: true,
+        }}
+      />
     </Stack>
   );
 }

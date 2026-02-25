@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Camera",
+    "name": "IntoShip GateMS",
     "slug": "Camera",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -28,6 +28,14 @@
     "plugins": [
       "expo-router",
       "expo-image-picker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#8CE02A",
+          "sounds": []
+        }
+      ],
       [
         "expo-splash-screen",
         {

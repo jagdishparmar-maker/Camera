@@ -13,7 +13,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Image,
-  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
@@ -25,14 +24,11 @@ import DateTimePicker, {
   DateTimePickerAndroid,
 } from "@react-native-community/datetimepicker";
 import PagerView from "react-native-pager-view";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
-  Avatar,
   Button,
   Card,
   Chip,
-  FAB,
   Icon,
   IconButton,
   Searchbar,
@@ -60,7 +56,7 @@ function formatCheckInDate(iso: string): string {
   }
 }
 
-export default function HomeScreen() {
+export default function AllVehiclesScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { showNotification } = useNotification();
@@ -69,51 +65,26 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeTab, setTypeTab] = useState<"Inward" | "Outward">("Inward");
-  const [searchExpanded, setSearchExpanded] = useState(false);
   const pagerRef = useRef<PagerView>(null);
-
-  const toggleSearch = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSearchExpanded((prev) => !prev);
-  }, []);
-
-  const collapseSearch = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSearchExpanded(false);
-  }, []);
   const [exitVehicle, setExitVehicle] = useState<Vehicle | null>(null);
   const [exitCheckOutDate, setExitCheckOutDate] = useState(new Date());
   const [exitRemarks, setExitRemarks] = useState("");
   const [showExitModal, setShowExitModal] = useState(false);
 
-  const filteredVehicles = (
-    searchQuery.trim()
-      ? vehicles.filter(
-          (v) =>
-            v.vehicleno
-              .toLowerCase()
-              .includes(searchQuery.toLowerCase().trim()) ||
-            (v.Customer?.toLowerCase().includes(
-              searchQuery.toLowerCase().trim(),
-            ) ??
-              false) ||
-            (v.Driver_Name?.toLowerCase().includes(
-              searchQuery.toLowerCase().trim(),
-            ) ??
-              false),
-        )
-      : vehicles
-  ).filter((v) => {
-    const s =
-      v.status ??
-      computeStatus({
-        Check_Out_Date: v.Check_Out_Date,
-        Dock_Out_DateTime: v.Dock_Out_DateTime,
-        Assigned_Dock: v.Assigned_Dock,
-        Dock_In_DateTime: v.Dock_In_DateTime,
-      });
-    return s !== "CheckedOut";
-  });
+  const filteredVehicles = searchQuery.trim()
+    ? vehicles.filter(
+        (v) =>
+          v.vehicleno
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase().trim()) ||
+          (v.Customer?.toLowerCase().includes(
+            searchQuery.toLowerCase().trim(),
+          ) ?? false) ||
+          (v.Driver_Name?.toLowerCase().includes(
+            searchQuery.toLowerCase().trim(),
+          ) ?? false),
+      )
+    : vehicles;
 
   const inwardVehicles = filteredVehicles.filter((v) => v.Type === "Inward");
   const outwardVehicles = filteredVehicles.filter((v) => v.Type === "Outward");
@@ -222,94 +193,168 @@ export default function HomeScreen() {
     }
   }, [exitVehicle, exitCheckOutDate, exitRemarks, performCheckOut]);
 
+  const renderVehicleItem = useCallback(
+    ({ item }: { item: Vehicle }) => {
+      const imgUri =
+        item.image && typeof item.image === "string"
+          ? getFileUrl(item, item.image)
+          : "";
+      const s =
+        item.status ??
+        computeStatus({
+          Check_Out_Date: item.Check_Out_Date,
+          Dock_Out_DateTime: item.Dock_Out_DateTime,
+          Assigned_Dock: item.Assigned_Dock,
+          Dock_In_DateTime: item.Dock_In_DateTime,
+        });
+      const statusColor =
+        STATUS_COLORS[s as VehicleStatus] ?? STATUS_COLORS.CheckedOut;
+      return (
+        <View style={styles.cardPressable}>
+          <Card
+            style={[
+              styles.vehicleCard,
+              { backgroundColor: theme.colors.surface },
+            ]}
+            mode="elevated"
+          >
+            <Card.Content style={styles.cardContent}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardMainPressable,
+                  pressed && styles.cardPressed,
+                ]}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(tabs)/(home)/vehicle/[id]",
+                    params: { id: item.id, vehicleno: item.vehicleno },
+                  })
+                }
+              >
+                {imgUri ? (
+                  <Image source={{ uri: imgUri }} style={styles.cardImage} />
+                ) : (
+                  <Surface
+                    style={[
+                      styles.cardImagePlaceholder,
+                      { backgroundColor: theme.colors.surfaceVariant },
+                    ]}
+                    elevation={0}
+                  >
+                    <Icon
+                      source="car"
+                      size={20}
+                      color={theme.colors.primary}
+                    />
+                  </Surface>
+                )}
+                <View style={styles.cardInfo}>
+                  <Text
+                    variant="titleSmall"
+                    style={{ color: theme.colors.onSurface }}
+                    numberOfLines={1}
+                  >
+                    {item.vehicleno}
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={styles.cardMeta}
+                    numberOfLines={1}
+                  >
+                    {item.Type ?? "—"} • {item.Transport || "—"}
+                  </Text>
+                  {item.Check_In_Date && (
+                    <Text
+                      variant="labelSmall"
+                      style={[
+                        styles.cardCheckIn,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formatCheckInDate(item.Check_In_Date)}
+                    </Text>
+                  )}
+                </View>
+                <Chip
+                  style={[
+                    styles.statusChip,
+                    { backgroundColor: statusColor },
+                  ]}
+                  textStyle={[
+                    styles.statusChipText,
+                    {
+                      color:
+                        STATUS_TEXT_COLORS[s as VehicleStatus] ?? "#FFFFFF",
+                    },
+                  ]}
+                >
+                  {s
+                    .replace(/([A-Z])/g, " $1")
+                    .trim()
+                    .toUpperCase()}
+                </Chip>
+              </Pressable>
+              {s === "DockedOut" && (
+                <IconButton
+                  icon="exit-to-app"
+                  size={22}
+                  iconColor={theme.colors.primary}
+                  onPress={() => handleExitPress(item)}
+                  style={styles.exitIconBtn}
+                />
+              )}
+            </Card.Content>
+          </Card>
+        </View>
+      );
+    },
+    [theme, router, handleExitPress],
+  );
+
+  const ListEmpty = () => (
+    <View style={styles.emptyState}>
+      <Surface
+        style={[
+          styles.emptyIconWrap,
+          { backgroundColor: theme.colors.surfaceVariant },
+        ]}
+        elevation={0}
+      >
+        <Icon source="car-side" size={64} color={theme.colors.primary} />
+      </Surface>
+      <Text
+        variant="titleMedium"
+        style={[styles.emptyTitle, { color: theme.colors.onSurface }]}
+      >
+        {typeTab === "Inward" ? "No inward vehicles" : "No outward vehicles"}
+      </Text>
+      <Text
+        variant="bodyMedium"
+        style={[
+          styles.emptySubtitle,
+          { color: theme.colors.onSurfaceVariant },
+        ]}
+      >
+        {searchQuery.trim()
+          ? "No matches for your search"
+          : "Tap the + button on home to add a vehicle"}
+      </Text>
+    </View>
+  );
+
   return (
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <SafeAreaView edges={["top"]} style={styles.safeTop}>
-        <View style={styles.header}>
-          {!searchExpanded && (
-            <View style={styles.headerLeft}>
-              <Avatar.Text size={40} label="FM" style={styles.avatar} />
-              <View>
-                <Text variant="titleMedium" style={styles.headerName}>
-                  GateMS
-                </Text>
-                <Text variant="bodySmall" style={styles.headerSub}>
-                  {vehicles.length} vehicles
-                </Text>
-              </View>
-            </View>
-          )}
-          <View
-            style={[
-              styles.headerRight,
-              searchExpanded && styles.headerRightExpanded,
-            ]}
-          >
-            {searchExpanded ? (
-              <>
-                <Searchbar
-                  placeholder="Track vehicle..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  style={styles.headerSearchbar}
-                  inputStyle={styles.searchInput}
-                  iconColor={theme.colors.onSurfaceVariant}
-                  placeholderTextColor={theme.colors.onSurfaceVariant}
-                  elevation={0}
-                  autoFocus
-                />
-                <IconButton
-                  icon="close"
-                  size={22}
-                  iconColor={theme.colors.onSurface}
-                  onPress={collapseSearch}
-                  style={styles.headerIconBtn}
-                />
-              </>
-            ) : (
-              <>
-                <IconButton
-                  icon="bell-outline"
-                  size={22}
-                  iconColor={theme.colors.onSurface}
-                  style={styles.headerIconBtn}
-                />
-                <IconButton
-                  icon="magnify"
-                  size={22}
-                  iconColor={theme.colors.onSurface}
-                  onPress={toggleSearch}
-                  style={styles.headerIconBtn}
-                />
-                <IconButton
-                  icon="dots-vertical"
-                  size={22}
-                  iconColor={theme.colors.onSurface}
-                  style={styles.headerIconBtn}
-                />
-              </>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.hero}>
-          <View style={styles.heroContent}>
-            <Text variant="titleLarge" style={styles.heroTitle}>
-              Vehicles
-            </Text>
-            <Pressable
-              onPress={() => router.push("/(tabs)/(home)/all")}
-              hitSlop={8}
-            >
-              <Text variant="bodyMedium" style={styles.heroSubtitle}>
-                See all
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
+      <View style={styles.safeTop}>
+        <Searchbar
+          placeholder="Search vehicles..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={styles.searchbar}
+          elevation={0}
+        />
         <SegmentedButtons
           value={typeTab}
           onValueChange={(v) => {
@@ -331,7 +376,7 @@ export default function HomeScreen() {
           ]}
           style={styles.typeTabs}
         />
-      </SafeAreaView>
+      </View>
 
       {loading ? (
         <View style={styles.centered}>
@@ -347,37 +392,31 @@ export default function HomeScreen() {
           }}
         >
           <View key="inward" style={styles.pagerPage}>
-            <VehicleList
+            <FlatList
               data={inwardVehicles}
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              theme={theme}
-              router={router}
-              emptyMessage="No inward vehicles"
-              onExitPress={handleExitPress}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+              ListEmptyComponent={ListEmpty}
+              renderItem={renderVehicleItem}
             />
           </View>
           <View key="outward" style={styles.pagerPage}>
-            <VehicleList
+            <FlatList
               data={outwardVehicles}
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              theme={theme}
-              router={router}
-              emptyMessage="No outward vehicles"
-              onExitPress={handleExitPress}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+              ListEmptyComponent={ListEmpty}
+              renderItem={renderVehicleItem}
             />
           </View>
         </PagerView>
       )}
-
-      <FAB
-        icon="plus"
-        label="Add"
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        color="#1A1A1A"
-        onPress={() => router.push("/(tabs)/(home)/add")}
-      />
 
       {showExitModal && exitVehicle && (
         <Modal visible transparent animationType="slide">
@@ -419,7 +458,7 @@ export default function HomeScreen() {
                   value={exitCheckOutDate}
                   mode="datetime"
                   display="spinner"
-                  onChange={(_, d) => d && setExitCheckOutDate(d)}
+                  onChange={(_d, d) => d && setExitCheckOutDate(d)}
                   accentColor={theme.colors.primary}
                   themeVariant="dark"
                 />
@@ -507,224 +546,19 @@ export default function HomeScreen() {
   );
 }
 
-function VehicleList({
-  data,
-  refreshing,
-  onRefresh,
-  theme,
-  router,
-  emptyMessage,
-  onExitPress,
-}: {
-  data: Vehicle[];
-  refreshing: boolean;
-  onRefresh: () => void;
-  theme: ReturnType<typeof useTheme>;
-  router: ReturnType<typeof useRouter>;
-  emptyMessage: string;
-  onExitPress: (vehicle: Vehicle) => void;
-}) {
-  return (
-    <FlatList
-      data={data}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContent}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-      ListEmptyComponent={
-        <View style={styles.emptyState}>
-          <Surface
-            style={[
-              styles.emptyIconWrap,
-              { backgroundColor: theme.colors.surfaceVariant },
-            ]}
-            elevation={0}
-          >
-            <Icon source="car-side" size={64} color={theme.colors.primary} />
-          </Surface>
-          <Text
-            variant="titleMedium"
-            style={[styles.emptyTitle, { color: theme.colors.onSurface }]}
-          >
-            {emptyMessage}
-          </Text>
-          <Text
-            variant="bodyMedium"
-            style={[
-              styles.emptySubtitle,
-              { color: theme.colors.onSurfaceVariant },
-            ]}
-          >
-            Tap the + button to add a vehicle
-          </Text>
-          <Button
-            mode="contained"
-            icon="plus"
-            onPress={() => router.push("/(tabs)/(home)/add")}
-            style={styles.emptyButton}
-          >
-            Add Vehicle
-          </Button>
-        </View>
-      }
-      renderItem={({ item }) => {
-        const imgUri =
-          item.image && typeof item.image === "string"
-            ? getFileUrl(item, item.image)
-            : "";
-        const s =
-          item.status ??
-          computeStatus({
-            Check_Out_Date: item.Check_Out_Date,
-            Dock_Out_DateTime: item.Dock_Out_DateTime,
-            Assigned_Dock: item.Assigned_Dock,
-            Dock_In_DateTime: item.Dock_In_DateTime,
-          });
-        const statusColor =
-          STATUS_COLORS[s as VehicleStatus] ?? STATUS_COLORS.CheckedOut;
-        return (
-          <View style={styles.cardPressable}>
-            <Card
-              style={[
-                styles.vehicleCard,
-                { backgroundColor: theme.colors.surface },
-              ]}
-              mode="elevated"
-            >
-              <Card.Content style={styles.cardContent}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.cardMainPressable,
-                    pressed && styles.cardPressed,
-                  ]}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/(home)/vehicle/[id]",
-                      params: { id: item.id, vehicleno: item.vehicleno },
-                    })
-                  }
-                >
-                  {imgUri ? (
-                    <Image source={{ uri: imgUri }} style={styles.cardImage} />
-                  ) : (
-                    <Surface
-                      style={[
-                        styles.cardImagePlaceholder,
-                        { backgroundColor: theme.colors.surfaceVariant },
-                      ]}
-                      elevation={0}
-                    >
-                      <Icon
-                        source="car"
-                        size={20}
-                        color={theme.colors.primary}
-                      />
-                    </Surface>
-                  )}
-                  <View style={styles.cardInfo}>
-                    <Text
-                      variant="titleSmall"
-                      style={{ color: theme.colors.onSurface }}
-                      numberOfLines={1}
-                    >
-                      {item.vehicleno}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={styles.cardMeta}
-                      numberOfLines={1}
-                    >
-                      {item.Type ?? "—"} • {item.Transport || "—"}
-                    </Text>
-                    {item.Check_In_Date && (
-                      <Text
-                        variant="labelSmall"
-                        style={[
-                          styles.cardCheckIn,
-                          { color: theme.colors.onSurfaceVariant },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {formatCheckInDate(item.Check_In_Date)}
-                      </Text>
-                    )}
-                  </View>
-                  <Chip
-                    style={[
-                      styles.statusChip,
-                      { backgroundColor: statusColor },
-                    ]}
-                    textStyle={[
-                      styles.statusChipText,
-                      {
-                        color:
-                          STATUS_TEXT_COLORS[s as VehicleStatus] ?? "#FFFFFF",
-                      },
-                    ]}
-                  >
-                    {s
-                      .replace(/([A-Z])/g, " $1")
-                      .trim()
-                      .toUpperCase()}
-                  </Chip>
-                </Pressable>
-                {s === "DockedOut" && (
-                  <IconButton
-                    icon="exit-to-app"
-                    size={22}
-                    iconColor={theme.colors.primary}
-                    onPress={() => onExitPress(item)}
-                    style={styles.exitIconBtn}
-                  />
-                )}
-              </Card.Content>
-            </Card>
-          </View>
-        );
-      }}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeTop: { backgroundColor: "#2C2C2E" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 0 },
-  headerRightExpanded: { flex: 1, minWidth: 0 },
-  headerSearchbar: {
-    flex: 1,
+  safeTop: { backgroundColor: "#2C2C2E", paddingHorizontal: 16, paddingTop: 0, paddingBottom: 12 },
+  searchbar: {
     borderRadius: 12,
     backgroundColor: "#3A3A3C",
     elevation: 0,
-    marginRight: 4,
+    marginBottom: 12,
   },
-  headerIconBtn: { margin: 0 },
-  avatar: { backgroundColor: "#3A3A3C" },
-  headerName: { color: "#FFFFFF", fontWeight: "600" },
-  headerSub: { color: "#A0A0A0", marginTop: 2 },
-  searchInput: { color: "#FFFFFF" },
-  hero: { paddingHorizontal: 20, paddingBottom: 16 },
-  heroContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  heroTitle: { color: "#FFFFFF", fontWeight: "600" },
-  heroSubtitle: { color: "#8CE02A", fontSize: 14 },
-  typeTabs: { marginHorizontal: 20, marginBottom: 12 },
+  typeTabs: { marginBottom: 12 },
   pager: { flex: 1 },
   pagerPage: { flex: 1 },
-  listContent: { padding: 16, paddingBottom: 100 },
+  listContent: { padding: 16, paddingBottom: 40 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyState: {
     flex: 1,
@@ -741,8 +575,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyTitle: { marginBottom: 8 },
-  emptySubtitle: { marginBottom: 24, textAlign: "center" },
-  emptyButton: { borderRadius: 12 },
+  emptySubtitle: { textAlign: "center" },
   cardPressable: { marginBottom: 8 },
   cardMainPressable: { flex: 1, flexDirection: "row", alignItems: "center" },
   cardPressed: { opacity: 0.9 },
@@ -768,12 +601,6 @@ const styles = StyleSheet.create({
   cardCheckIn: { marginTop: 2, fontSize: 11, opacity: 0.9 },
   statusChip: { marginLeft: 8 },
   statusChipText: { fontWeight: "600", fontSize: 10 },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 24,
-    borderRadius: 16,
-  },
   exitModalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

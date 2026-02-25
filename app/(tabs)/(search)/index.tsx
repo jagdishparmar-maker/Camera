@@ -12,7 +12,6 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, Icon, Surface, Text, useTheme } from "react-native-paper";
 
 const COLLECTION = "vehicles";
@@ -117,7 +116,7 @@ export default function DockScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <SafeAreaView edges={["top"]} style={styles.safeTop}>
+      <View style={styles.safeTop}>
         <View style={styles.header}>
           <Text variant="titleLarge" style={styles.headerTitle}>
             Dock Layout
@@ -126,7 +125,7 @@ export default function DockScreen() {
             DOCK1 – DOCK{DOCK_COUNT}
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
 
       {loading ? (
         <View style={styles.centered}>
@@ -256,10 +255,10 @@ export default function DockScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeTop: { backgroundColor: "#2C2C2E" },
+  safeTop: { backgroundColor: "#2C2C2E", paddingTop: 0 },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 0,
     paddingBottom: 0,
   },
   headerTitle: { color: "#FFFFFF", fontWeight: "600", fontSize: 22 },

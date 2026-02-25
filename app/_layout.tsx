@@ -1,4 +1,5 @@
 import "@/lib/pocketbase";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import { appTheme } from "@/lib/theme";
 import {
   Geist_400Regular,
@@ -49,6 +50,7 @@ export default function RootLayout() {
   return (
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <PaperProvider theme={appTheme}>
+        <NotificationProvider>
         <StatusBar style="light" />
         <Stack
           screenOptions={{
@@ -60,6 +62,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
+        </NotificationProvider>
       </PaperProvider>
     </View>
   );
