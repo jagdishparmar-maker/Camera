@@ -1,4 +1,4 @@
-# Vehicle Dashboard Webapp
+# Vehicle Dashboard Webapp for Intoship
 
 Desktop webapp for viewing vehicles from PocketBase. Built with Next.js.
 
