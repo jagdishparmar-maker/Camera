@@ -4,6 +4,8 @@ import type { Vehicle, VehicleStatus } from "@/lib/vehicle-types";
 import {
   computeStatus,
   formatDateTime,
+  getDockDuration,
+  getYardDuration,
   STATUS_COLORS,
   STATUS_LABELS,
 } from "@/lib/vehicle-types";
@@ -12,27 +14,6 @@ function getFileUrl(vehicle: Vehicle, filename: string): string {
   const base = process.env.NEXT_PUBLIC_POCKETBASE_URL ?? "http://127.0.0.1:8090";
   const collId = vehicle.collectionId ?? "vehicles";
   return `${base}/api/files/${collId}/${vehicle.id}/${filename}`;
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 0) return "—";
-  const sec = Math.floor(ms / 1000);
-  const min = Math.floor(sec / 60);
-  const hr = Math.floor(min / 60);
-  const day = Math.floor(hr / 24);
-  const parts: string[] = [];
-  if (day > 0) parts.push(`${day}d`);
-  if (hr % 24 > 0) parts.push(`${hr % 24}h`);
-  if (min % 60 > 0 || parts.length === 0) parts.push(`${min % 60}m`);
-  return parts.join(" ");
-}
-
-function computeDuration(from: string | undefined, to: string | undefined): string | null {
-  if (!from || !to) return null;
-  const a = new Date(from).getTime();
-  const b = new Date(to).getTime();
-  if (isNaN(a) || isNaN(b)) return null;
-  return formatDuration(b - a);
 }
 
 function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
@@ -130,14 +111,14 @@ export function VehicleDetailModal({ vehicle, onClose }: VehicleDetailModalProps
             <DetailRow label="Check Out" value={vehicle.Check_Out_Date ? formatDateTime(vehicle.Check_Out_Date) : null} />
             <DetailRow
               label="Yard Duration"
-              value={computeDuration(vehicle.Check_In_Date, vehicle.Check_Out_Date)}
+              value={getYardDuration(vehicle)}
             />
             <DetailRow label="Assigned Dock" value={vehicle.Assigned_Dock != null ? `Dock ${vehicle.Assigned_Dock}` : null} />
             <DetailRow label="Dock In" value={vehicle.Dock_In_DateTime ? formatDateTime(vehicle.Dock_In_DateTime) : null} />
             <DetailRow label="Dock Out" value={vehicle.Dock_Out_DateTime ? formatDateTime(vehicle.Dock_Out_DateTime) : null} />
             <DetailRow
               label="Dock Duration"
-              value={computeDuration(vehicle.Dock_In_DateTime, vehicle.Dock_Out_DateTime)}
+              value={getDockDuration(vehicle)}
             />
             <DetailRow label="Remarks" value={vehicle.Remarks} />
           </div>

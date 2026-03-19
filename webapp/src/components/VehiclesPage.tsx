@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { pb } from "@/lib/pocketbase";
 import type { Vehicle, VehicleStatus } from "@/lib/vehicle-types";
-import { computeStatus, STATUS_COLORS, STATUS_LABELS } from "@/lib/vehicle-types";
+import { computeStatus, getDockDuration, STATUS_COLORS, STATUS_LABELS } from "@/lib/vehicle-types";
 import { subscribeVehicles } from "@/lib/realtime";
 import { AnalyticsStats } from "./AnalyticsStats";
 import { VehicleDetailModal } from "./VehicleDetailModal";
@@ -250,7 +250,7 @@ export function VehiclesPage() {
         />
 
         {/* Divider */}
-        <div className="relative border-x border-[var(--border)]">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-x border-[var(--border)]">
 
           {/* Col 2 – Outward */}
           <VehicleColumn
@@ -340,7 +340,7 @@ function VehicleColumn({
   }, [vehicles]);
 
   return (
-    <section className="flex h-full min-w-0 flex-col overflow-hidden">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {/* Column header */}
       <div
         className="flex flex-shrink-0 items-center justify-between border-b px-3 py-2"
@@ -365,7 +365,7 @@ function VehicleColumn({
       </div>
 
       {/* Rows */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {loading ? (
           <LoadingRows />
         ) : error ? (
@@ -373,7 +373,7 @@ function VehicleColumn({
         ) : vehicles.length === 0 ? (
           <EmptyState message={emptyMessage} />
         ) : (
-          <div>
+          <div className="pb-4">
             {(includeCheckedOut ? STATUS_GROUP_ORDER_ALL : STATUS_GROUP_ORDER_ON_SITE).map((status) => {
               const group = grouped[status];
               if (!group || group.length === 0) return null;
@@ -516,34 +516,35 @@ function DockColumn({
   const occupied = docks.filter((d) => vehiclesByDock[d]?.length > 0).length;
 
   return (
-    <section className="flex h-full min-w-0 flex-col overflow-hidden bg-[var(--dock-bg)]">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--dock-bg)]">
       {/* Header */}
       <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-[var(--text-muted)]" />
-          <h2 className="text-sm font-semibold text-[var(--text-muted)]">Dock Status</h2>
+          <h2 className="text-base font-semibold text-[var(--text-muted)]">Dock Status</h2>
         </div>
-        <span className="rounded-full border border-[var(--border)] px-2 py-0.5 font-mono text-xs font-bold tabular-nums text-[var(--text-muted)]">
+        <span className="rounded-full border border-[var(--border)] px-2.5 py-1 font-mono text-sm font-bold tabular-nums text-[var(--text-muted)]">
           {occupied}/{docks.length}
         </span>
       </div>
 
       {/* Sub-header */}
-      <div className="grid grid-cols-[44px_1fr_1fr_40px] gap-0 border-b border-[var(--border)] bg-[var(--bg-muted)] px-3 py-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-xmuted)]">Dock</span>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-xmuted)]">Vehicle</span>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-xmuted)]">Customer</span>
-        <span className="text-center text-[10px] font-semibold uppercase tracking-wider text-[var(--text-xmuted)]">Type</span>
+      <div className="grid grid-cols-[44px_1fr_1fr_80px_44px] gap-0 border-b border-[var(--border)] bg-[var(--bg-muted)] px-3 py-1.5">
+        <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-xmuted)]">Dock</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-xmuted)]">Vehicle</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-xmuted)]">Customer</span>
+        <span className="text-center text-xs font-semibold uppercase tracking-wider text-[var(--text-xmuted)]">Duration</span>
+        <span className="text-center text-xs font-semibold uppercase tracking-wider text-[var(--text-xmuted)]">Type</span>
       </div>
 
       {/* Dock rows */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {loading ? (
           <LoadingRows />
         ) : error ? (
           <ErrorState error={error} onRefresh={onRefresh} />
         ) : (
-          <div className="divide-y divide-[var(--border)]">
+          <div className="divide-y divide-[var(--border)] pb-4">
             {docks.map((dockNum) => {
               const dockVehicles = vehiclesByDock[dockNum] ?? [];
               const isEmpty = dockVehicles.length === 0;
@@ -551,9 +552,9 @@ function DockColumn({
               return (
                 <div key={dockNum}>
                   {isEmpty ? (
-                    <div className="grid grid-cols-[44px_1fr_1fr_40px] items-center px-3 py-2">
-                      <span className="font-mono text-xs font-bold text-[var(--text-xmuted)]">{dockNum}</span>
-                      <span className="col-span-3 text-xs text-[var(--text-xmuted)]">—</span>
+                    <div className="grid grid-cols-[44px_1fr_1fr_80px_44px] items-center px-3 py-2.5">
+                      <span className="font-mono text-sm font-bold text-[var(--text-xmuted)]">{dockNum}</span>
+                      <span className="col-span-4 text-sm text-[var(--text-xmuted)]">—</span>
                     </div>
                   ) : (
                     dockVehicles.map((v, idx) => (
@@ -561,21 +562,24 @@ function DockColumn({
                         key={v.id}
                         role="button"
                         onClick={() => onVehicleClick?.(v)}
-                        className={`grid cursor-pointer grid-cols-[44px_1fr_1fr_40px] items-center px-3 py-2 transition-colors ${idx > 0 ? "border-t border-dashed border-[var(--border)]" : ""} ${
+                        className={`grid cursor-pointer grid-cols-[44px_1fr_1fr_80px_44px] items-center px-3 py-2.5 transition-colors ${idx > 0 ? "border-t border-dashed border-[var(--border)]" : ""} ${
                           isCheckedInOver24h(v) ? "bg-amber-50 hover:bg-amber-100" : "hover:bg-[var(--bg-subtle)]"
                         }`}
                       >
-                        <span className="font-mono text-xs font-bold text-[var(--text-muted)]">
+                        <span className="font-mono text-sm font-bold text-[var(--text-muted)]">
                           {idx === 0 ? dockNum : ""}
                         </span>
-                        <span className="min-w-0 truncate pr-1 font-mono text-xs font-semibold text-[var(--text)]">
+                        <span className="min-w-0 truncate pr-1 font-mono text-sm font-semibold text-[var(--text)]">
                           {v.vehicleno}
                         </span>
-                        <span className="min-w-0 truncate pr-1 text-xs text-[var(--text-muted)]">
+                        <span className="min-w-0 truncate pr-1 text-sm text-[var(--text-muted)]">
                           {v.Customer || "—"}
                         </span>
+                        <span className="min-w-0 text-center font-mono text-sm tabular-nums text-[var(--text)]" title={getDockDuration(v) ?? undefined}>
+                          {getDockDuration(v) ?? "—"}
+                        </span>
                         <div className="flex justify-center">
-                          <span className={`rounded px-1 py-0.5 text-[9px] font-bold uppercase ${
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
                             v.Type === "Inward"
                               ? "bg-[var(--inward-bg)] text-[var(--inward-accent)] border border-[var(--inward-border)]"
                               : v.Type === "Outward"

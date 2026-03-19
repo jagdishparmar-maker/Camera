@@ -1,4 +1,6 @@
 import "@/lib/pocketbase";
+import { ConnectivityBanner } from "@/components/ConnectivityBanner";
+import { ConnectivityProvider } from "@/contexts/ConnectivityContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { appTheme } from "@/lib/theme";
 import {
@@ -50,19 +52,24 @@ export default function RootLayout() {
   return (
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <PaperProvider theme={appTheme}>
-        <NotificationProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: "slide_from_right",
-            contentStyle: { backgroundColor: "#2C2C2E" },
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
-        </NotificationProvider>
+        <ConnectivityProvider>
+          <NotificationProvider>
+            <ConnectivityBanner />
+            <StatusBar style="light" />
+            <View style={{ flex: 1 }}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: "slide_from_right",
+                  contentStyle: { backgroundColor: "#2C2C2E" },
+                }}
+              >
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              </Stack>
+            </View>
+          </NotificationProvider>
+        </ConnectivityProvider>
       </PaperProvider>
     </View>
   );

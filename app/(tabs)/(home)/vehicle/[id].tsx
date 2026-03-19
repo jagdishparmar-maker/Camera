@@ -1,8 +1,8 @@
-import { getFullList, getOne, update } from "@/lib/database";
+import { getFullList, getOne, remove, update } from "@/lib/database";
 import { getFileUrl } from "@/lib/storage";
 import type { Vehicle, VehicleStatus } from "@/lib/vehicle-types";
 import { computeStatus, formatDateTime, STATUS_COLORS, STATUS_TEXT_COLORS } from "@/lib/vehicle-types";
-import { useLocalSearchParams, useNavigation } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -66,6 +66,7 @@ export default function VehicleDetailScreen() {
   const [loadingDocks, setLoadingDocks] = useState(false);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const router = useRouter();
 
   const loadVehicle = useCallback(async () => {
     if (!id) return;
@@ -167,6 +168,43 @@ export default function VehicleDetailScreen() {
       });
     }
   }, [vehicle, getVehicleShareText]);
+
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = useCallback(() => {
+    if (!id) return;
+    Alert.alert(
+      "Delete Vehicle",
+      `Are you sure you want to delete ${vehicle?.vehicleno ?? "this vehicle"}? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await remove(COLLECTION, id);
+              router.back();
+            } catch (err) {
+              console.error(err);
+              Alert.alert("Error", "Could not delete vehicle.");
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [id, vehicle?.vehicleno, router]);
+
+  const handleEdit = useCallback(() => {
+    if (!id) return;
+    router.push({
+      pathname: "/(tabs)/(home)/vehicle/edit/[id]",
+      params: { id },
+    });
+  }, [id, router]);
 
   useEffect(() => {
     if (!vehicle) return;
@@ -312,6 +350,26 @@ export default function VehicleDetailScreen() {
             label="Check Out"
             value={vehicle.Check_Out_Date ? formatDateTime(vehicle.Check_Out_Date) : undefined}
             icon="calendar-check"
+          />
+        </List.Section>
+        <List.Section>
+          <List.Subheader>Actions</List.Subheader>
+          <List.Item
+            title="Edit Vehicle"
+            description="Update vehicle details"
+            left={(props) => <List.Icon {...props} icon="pencil" />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            onPress={handleEdit}
+            style={styles.assignDockItem}
+          />
+          <List.Item
+            title="Delete Vehicle"
+            description="Remove this record permanently"
+            left={(props) => <List.Icon {...props} icon="delete-outline" />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            onPress={handleDelete}
+            disabled={deleting}
+            style={[styles.assignDockItem, { opacity: deleting ? 0.6 : 1 }]}
           />
         </List.Section>
         <List.Section>

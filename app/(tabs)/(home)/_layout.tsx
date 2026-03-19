@@ -35,6 +35,13 @@ export default function HomeStackLayout() {
         })}
       />
       <Stack.Screen
+        name="vehicle/edit/[id]"
+        options={{
+          title: "Edit Vehicle",
+          headerBackVisible: true,
+        }}
+      />
+      <Stack.Screen
         name="all"
         options={{
           title: "All Vehicles",
