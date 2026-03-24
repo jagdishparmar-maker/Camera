@@ -2,9 +2,10 @@ import { FormScreenScroll } from "@/components/FormScreenScroll";
 import { create, getFullList, remove, update } from "@/lib/database";
 import type { VehicleStatus } from "@/lib/vehicle-types";
 import { computeStatus } from "@/lib/vehicle-types";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,11 +16,17 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import {
+  type NavigationAction,
+  useNavigation,
+  usePreventRemove,
+} from "@react-navigation/native";
 import DateTimePicker, {
   DateTimePickerAndroid,
 } from "@react-native-community/datetimepicker";
 import {
   Button,
+  Chip,
   Icon,
   List,
   Menu,
@@ -52,6 +59,7 @@ function fileMetaFromUri(uri: string) {
 export default function AddVehicleScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const navigation = useNavigation();
   const [flowStep, setFlowStep] = useState<FlowStep>(1);
   const [submitting, setSubmitting] = useState(false);
   const [checkInDate, setCheckInDate] = useState(new Date());
@@ -69,6 +77,27 @@ export default function AddVehicleScreen() {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  const vehicleSavedRef = useRef(false);
+  const draftRecordIdRef = useRef<string | null>(null);
+  const abandonedWithoutSaveRef = useRef(false);
+  /** User left step 2 (photo); delete draft if create finishes after they went back. */
+  const photoStepDiscardedRef = useRef(false);
+
+  useEffect(() => {
+    draftRecordIdRef.current = draftRecordId;
+  }, [draftRecordId]);
+
+  useEffect(() => {
+    return () => {
+      if (vehicleSavedRef.current) return;
+      abandonedWithoutSaveRef.current = true;
+      const id = draftRecordIdRef.current;
+      if (id) {
+        void remove(COLLECTION, id).catch(() => {});
+      }
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     getFullList<CustomerRecord>(CUSTOMERS_COLLECTION, { sort: "customer_name" })
@@ -83,6 +112,32 @@ export default function AddVehicleScreen() {
       });
     return () => { cancelled = true; };
   }, []);
+
+  const hasUnsavedDraft = flowStep >= 2 && !!imageUri;
+
+  const onPreventRemove = useCallback(
+    ({ data }: { data: { action: NavigationAction } }) => {
+      if (vehicleSavedRef.current) {
+        navigation.dispatch(data.action);
+        return;
+      }
+      Alert.alert(
+        "Discard this vehicle?",
+        "You have a photo and have not saved yet. Leaving will remove this draft.",
+        [
+          { text: "Stay", style: "cancel" },
+          {
+            text: "Leave",
+            style: "destructive",
+            onPress: () => navigation.dispatch(data.action),
+          },
+        ],
+      );
+    },
+    [navigation],
+  );
+
+  usePreventRemove(hasUnsavedDraft && !submitting, onPreventRemove);
 
   const buildCreatePayload = useCallback(
     (uri: string, tempVehicleno: string) => {
@@ -123,6 +178,13 @@ export default function AddVehicleScreen() {
       try {
         const payload = buildCreatePayload(uri, tempVehicleno);
         const rec = await create<{ id: string }>(COLLECTION, payload);
+        if (
+          abandonedWithoutSaveRef.current ||
+          photoStepDiscardedRef.current
+        ) {
+          void remove(COLLECTION, rec.id).catch(() => {});
+          return;
+        }
         setDraftRecordId(rec.id);
         setUploadState("done");
       } catch (err: unknown) {
@@ -163,6 +225,7 @@ export default function AddVehicleScreen() {
       }
       setImageUri(uri);
       if (flowStep === 2) {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setFlowStep(3);
       }
       if (draftRecordId) {
@@ -171,7 +234,13 @@ export default function AddVehicleScreen() {
         void startBackgroundUpload(uri);
       }
     },
-    [flowStep, draftRecordId, uploadState, replaceImageOnDraft, startBackgroundUpload],
+    [
+      flowStep,
+      draftRecordId,
+      uploadState,
+      replaceImageOnDraft,
+      startBackgroundUpload,
+    ],
   );
 
   const pickImage = useCallback(async () => {
@@ -215,6 +284,7 @@ export default function AddVehicleScreen() {
 
   const goBackStep = useCallback(async () => {
     if (flowStep === 2) {
+      photoStepDiscardedRef.current = true;
       if (draftRecordId) {
         try {
           await remove(COLLECTION, draftRecordId);
@@ -239,6 +309,8 @@ export default function AddVehicleScreen() {
       Alert.alert("Required", "Select a customer.");
       return;
     }
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    photoStepDiscardedRef.current = false;
     setFlowStep(2);
   }, [selectedCustomer]);
 
@@ -297,12 +369,21 @@ export default function AddVehicleScreen() {
         };
         await create(COLLECTION, payload);
       }
+      vehicleSavedRef.current = true;
+      void Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success,
+      );
       router.back();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to save vehicle.";
       Alert.alert("Error", msg);
     } finally {
-      setSubmitting(false);
+      // Do not clear submitting after a successful save: `router.back()` runs first, then `finally`
+      // would set submitting false and re-enable `usePreventRemove` before the screen unmounts,
+      // which incorrectly shows the discard dialog.
+      if (!vehicleSavedRef.current) {
+        setSubmitting(false);
+      }
     }
   }, [
     vehicleno,
@@ -358,6 +439,63 @@ export default function AddVehicleScreen() {
     }
   }, [checkInDate, openAndroidDateTimePicker]);
 
+  const renderPhotoWithBadge = useCallback(() => {
+    if (!imageUri) return null;
+    return (
+      <View
+        style={styles.imagePreviewWrap}
+        accessibilityLabel={
+          uploadState === "uploading"
+            ? "Vehicle photo, uploading"
+            : uploadState === "done"
+              ? "Vehicle photo, uploaded"
+              : uploadState === "error"
+                ? "Vehicle photo, upload failed"
+                : "Vehicle photo preview"
+        }
+      >
+        <Image
+          source={{ uri: imageUri }}
+          style={styles.imagePreview}
+          resizeMode="cover"
+        />
+        {uploadState === "uploading" ? (
+          <View
+            style={[styles.uploadCornerBadge, styles.uploadCornerBadgeNeutral]}
+            accessibilityRole="progressbar"
+            accessibilityLabel="Uploading"
+          >
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          </View>
+        ) : null}
+        {uploadState === "done" ? (
+          <View
+            style={[styles.uploadCornerBadge, styles.uploadCornerBadgeOk]}
+            accessibilityRole="text"
+            accessibilityLabel="Uploaded to server"
+          >
+            <Icon source="check" size={22} color="#FFFFFF" />
+          </View>
+        ) : null}
+        {uploadState === "error" ? (
+          <View
+            style={[
+              styles.uploadCornerBadge,
+              { backgroundColor: theme.colors.error },
+            ]}
+            accessibilityLabel="Upload failed"
+          >
+            <Icon
+              source="alert-circle-outline"
+              size={22}
+              color={theme.colors.onError}
+            />
+          </View>
+        ) : null}
+      </View>
+    );
+  }, [imageUri, uploadState, theme.colors.error, theme.colors.onError]);
+
   const stepTitle =
     flowStep === 1 ? "Type & customer" : flowStep === 2 ? "Vehicle photo" : "Details";
 
@@ -369,6 +507,22 @@ export default function AddVehicleScreen() {
             <Text variant="headlineSmall" style={styles.screenTitle}>
               Add Vehicle
             </Text>
+            <View
+              style={[
+                styles.progressTrack,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
+            >
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${(flowStep / 3) * 100}%`,
+                    backgroundColor: theme.colors.primary,
+                  },
+                ]}
+              />
+            </View>
             <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
               Step {flowStep} of 3 — {stepTitle}
             </Text>
@@ -394,6 +548,9 @@ export default function AddVehicleScreen() {
               </Text>
               <View style={styles.bigTypeRow}>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: type === "Inward" }}
+                  accessibilityLabel="Inward vehicle, arriving or entry"
                   onPress={() => setType("Inward")}
                   style={({ pressed }) => [
                     styles.bigTypeBtn,
@@ -405,7 +562,10 @@ export default function AddVehicleScreen() {
                   <Surface
                     style={[
                       styles.bigTypeInner,
-                      type === "Inward" && { backgroundColor: theme.colors.primaryContainer },
+                      { backgroundColor: theme.colors.surfaceVariant },
+                      type === "Inward" && {
+                        backgroundColor: theme.colors.primaryContainer,
+                      },
                     ]}
                     elevation={0}
                   >
@@ -429,6 +589,9 @@ export default function AddVehicleScreen() {
                   </Surface>
                 </Pressable>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: type === "Outward" }}
+                  accessibilityLabel="Outward vehicle, leaving or exit"
                   onPress={() => setType("Outward")}
                   style={({ pressed }) => [
                     styles.bigTypeBtn,
@@ -440,7 +603,10 @@ export default function AddVehicleScreen() {
                   <Surface
                     style={[
                       styles.bigTypeInner,
-                      type === "Outward" && { backgroundColor: theme.colors.primaryContainer },
+                      { backgroundColor: theme.colors.surfaceVariant },
+                      type === "Outward" && {
+                        backgroundColor: theme.colors.primaryContainer,
+                      },
                     ]}
                     elevation={0}
                   >
@@ -473,16 +639,26 @@ export default function AddVehicleScreen() {
                 onDismiss={() => setCustomerMenuVisible(false)}
                 anchor={
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Select customer"
+                    accessibilityState={{ expanded: customerMenuVisible }}
                     onPress={() => setCustomerMenuVisible(true)}
                     style={({ pressed }) => [pressed && styles.dateSurfacePressed]}
                   >
-                    <Surface style={styles.dateSurface} elevation={0}>
+                    <Surface
+                      style={[
+                        styles.dateSurface,
+                        { backgroundColor: theme.colors.surfaceVariant },
+                      ]}
+                      elevation={0}
+                    >
                       <View style={styles.dateSurfaceContent}>
                         <Icon source="account" size={18} color={theme.colors.primary} />
                         <Text
                           variant="bodyMedium"
                           style={[
                             styles.dateSurfaceText,
+                            { color: theme.colors.onSurface },
                             !selectedCustomer && { opacity: 0.6 },
                           ]}
                         >
@@ -496,12 +672,16 @@ export default function AddVehicleScreen() {
                 contentStyle={{ backgroundColor: theme.colors.surface }}
               >
                 {customers.length === 0 ? (
-                  <List.Item title="No customers" description="Add customers in PocketBase" />
+                  <List.Item
+                    title="No customers"
+                    description="Ask an admin to add customers in the system."
+                  />
                 ) : (
                   customers.map((c) => (
                     <Menu.Item
                       key={c.id}
                       onPress={() => {
+                        void Haptics.selectionAsync();
                         setSelectedCustomer(c);
                         setCustomerMenuVisible(false);
                       }}
@@ -527,14 +707,12 @@ export default function AddVehicleScreen() {
           {flowStep === 2 && (
             <View style={styles.formSection}>
               <Text variant="bodyMedium" style={styles.stepIntro}>
-                Capture or choose a photo. After you pick one, you can enter vehicle details while the
-                image uploads.
+                Capture or choose a photo. You will go straight to vehicle details; a small badge on
+                the photo shows upload progress, then a check when it is on the server.
               </Text>
-              <Surface style={[styles.imagePicker, imageUri && styles.imagePickerFull]} elevation={0}>
+              <Surface style={[styles.imagePicker, styles.imagePickerFull]} elevation={0}>
                 {imageUri ? (
-                  <View style={styles.imagePreviewWrap}>
-                    <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
-                  </View>
+                  renderPhotoWithBadge()
                 ) : (
                   <View style={styles.imagePlaceholder}>
                     <Icon source="camera" size={40} color={theme.colors.primary} />
@@ -564,18 +742,73 @@ export default function AddVehicleScreen() {
                   Select
                 </Button>
               </View>
+              {imageUri && uploadState === "error" ? (
+                <View style={styles.uploadErrorInline}>
+                  <Text
+                    variant="bodySmall"
+                    style={[
+                      styles.uploadErrorText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {uploadError ?? "Could not upload. Try again."}
+                  </Text>
+                  <Button mode="text" compact onPress={retryUpload} icon="refresh">
+                    Retry
+                  </Button>
+                </View>
+              ) : null}
             </View>
           )}
 
           {/* Step 3: Remaining fields (upload runs in parallel) */}
           {flowStep === 3 && (
             <View style={styles.formSection}>
+              <Surface
+                style={[
+                  styles.summaryCard,
+                  { backgroundColor: theme.colors.secondaryContainer },
+                ]}
+                elevation={0}
+              >
+                <Text
+                  variant="labelSmall"
+                  style={[
+                    styles.summaryEyebrow,
+                    { color: theme.colors.onSecondaryContainer },
+                  ]}
+                >
+                  Check-in summary
+                </Text>
+                <View style={styles.summaryChips}>
+                  <Chip
+                    compact
+                    mode="flat"
+                    icon={type === "Inward" ? "arrow-down" : "arrow-up"}
+                    style={{ backgroundColor: theme.colors.surface }}
+                    textStyle={{ color: theme.colors.onSurface }}
+                  >
+                    {type}
+                  </Chip>
+                  <Chip
+                    compact
+                    mode="flat"
+                    icon="account"
+                    style={{
+                      backgroundColor: theme.colors.surface,
+                      alignSelf: "flex-start",
+                      maxWidth: "100%",
+                    }}
+                    textStyle={{ color: theme.colors.onSurface }}
+                  >
+                    {selectedCustomer?.customer_name ?? "—"}
+                  </Chip>
+                </View>
+              </Surface>
+
               <Surface style={[styles.imagePicker, styles.imagePickerCompact]} elevation={0}>
-                {imageUri ? (
-                  <View style={styles.imagePreviewWrap}>
-                    <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
-                  </View>
-                ) : null}
+                {imageUri ? renderPhotoWithBadge() : null}
               </Surface>
               <View style={styles.imageActions}>
                 <Button
@@ -600,44 +833,41 @@ export default function AddVehicleScreen() {
                 </Button>
               </View>
 
-              {uploadState === "uploading" && (
-                <Surface style={styles.uploadBanner} elevation={0}>
-                  <ActivityIndicator color={theme.colors.primary} />
-                  <Text variant="bodySmall" style={styles.uploadBannerText}>
-                    Uploading image… you can fill the form below while this finishes.
+              {uploadState === "error" ? (
+                <View style={styles.uploadErrorInline}>
+                  <Text
+                    variant="bodySmall"
+                    style={[
+                      styles.uploadErrorText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {uploadError ?? "Could not upload. Try again or save to upload with the vehicle."}
                   </Text>
-                </Surface>
-              )}
-              {uploadState === "done" && (
-                <Surface style={[styles.uploadBanner, styles.uploadBannerOk]} elevation={0}>
-                  <Icon source="check-circle" size={20} color={theme.colors.primary} />
-                  <Text variant="bodySmall" style={styles.uploadBannerText}>
-                    Image saved on server. Complete the details and save.
-                  </Text>
-                </Surface>
-              )}
-              {uploadState === "error" && (
-                <Surface style={[styles.uploadBanner, styles.uploadBannerErr]} elevation={0}>
-                  <Icon source="alert-circle" size={20} color={theme.colors.error} />
-                  <View style={styles.uploadErrBody}>
-                    <Text variant="bodySmall" style={styles.uploadBannerText}>
-                      {uploadError ?? "Could not upload yet."} You can retry or save at the end.
-                    </Text>
-                    <Button mode="text" compact onPress={retryUpload} icon="refresh">
-                      Retry upload
-                    </Button>
-                  </View>
-                </Surface>
-              )}
+                  <Button mode="text" compact onPress={retryUpload} icon="refresh">
+                    Retry
+                  </Button>
+                </View>
+              ) : null}
 
               <Text variant="labelSmall" style={[styles.fieldLabel, { marginTop: 0 }]}>
                 Check In Date & Time *
               </Text>
               <Pressable onPress={handleDatePress} style={({ pressed }) => [pressed && styles.dateSurfacePressed]}>
-                <Surface style={styles.dateSurface} elevation={0}>
+                <Surface
+                  style={[
+                    styles.dateSurface,
+                    { backgroundColor: theme.colors.surfaceVariant },
+                  ]}
+                  elevation={0}
+                >
                   <View style={styles.dateSurfaceContent}>
                     <Icon source="calendar-clock" size={18} color={theme.colors.primary} />
-                    <Text variant="bodyMedium" style={styles.dateSurfaceText}>
+                    <Text
+                      variant="bodyMedium"
+                      style={[styles.dateSurfaceText, { color: theme.colors.onSurface }]}
+                    >
                       {formatDateTime(checkInDate)}
                     </Text>
                   </View>
@@ -671,7 +901,9 @@ export default function AddVehicleScreen() {
                 dense
                 placeholder="e.g. MH12AB1234"
                 value={vehicleno}
-                onChangeText={setVehicleno}
+                onChangeText={(text) =>
+                  setVehicleno(text.replace(/\s/g, ""))
+                }
                 autoCapitalize="characters"
                 left={<TextInput.Icon icon="car" />}
                 style={styles.input}
@@ -720,17 +952,29 @@ export default function AddVehicleScreen() {
               <Button
                 mode="contained"
                 onPress={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || uploadState === "uploading"}
                 loading={submitting}
                 icon="content-save"
                 style={styles.submitButton}
               >
                 Save Vehicle
               </Button>
+              {uploadState === "uploading" ? (
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.saveHint,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  Wait for the image upload to finish before you can save.
+                </Text>
+              ) : null}
             </View>
           )}
         </List.Section>
       </FormScreenScroll>
+
     </View>
   );
 }
@@ -740,6 +984,24 @@ const styles = StyleSheet.create({
   listSection: { marginTop: 0 },
   screenHeader: { marginBottom: 8, gap: 4 },
   screenTitle: { fontWeight: "600" },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+    marginTop: 12,
+    width: "100%",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  summaryCard: {
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  summaryEyebrow: { fontWeight: "600", marginBottom: 8 },
+  summaryChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   backRow: { alignSelf: "flex-start", marginBottom: 4 },
   stepHeading: { marginTop: 12, marginBottom: 8, fontWeight: "600" },
   customerHeading: { marginTop: 20 },
@@ -764,26 +1026,37 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 8,
     gap: 6,
-    backgroundColor: "#3A3A3C",
   },
   bigTypeLabel: { textAlign: "center" },
   bigTypeHint: { opacity: 0.65, textAlign: "center" },
   formSection: { paddingBottom: 20, gap: 4 },
   fieldLabel: { marginBottom: 4, marginTop: 8 },
   input: { marginBottom: 0 },
-  uploadBanner: {
+  uploadCornerBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  uploadCornerBadgeNeutral: { backgroundColor: "rgba(0,0,0,0.58)" },
+  uploadCornerBadgeOk: { backgroundColor: "rgba(34, 197, 94, 0.95)" },
+  uploadErrorInline: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    backgroundColor: "#3A3A3C",
+    gap: 4,
+    marginTop: 8,
+    marginBottom: 4,
   },
-  uploadBannerOk: { backgroundColor: "#2D3B2D" },
-  uploadBannerErr: { alignItems: "flex-start" },
-  uploadBannerText: { flex: 1, opacity: 0.95 },
-  uploadErrBody: { flex: 1, gap: 4 },
+  uploadErrorText: { flex: 1, minWidth: 0 },
   imagePickerCompact: {
     height: Math.min(160, IMAGE_PREVIEW_HEIGHT),
     minHeight: 120,
@@ -795,7 +1068,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: "#48484A",
   },
   dateSurfacePressed: { opacity: 0.8 },
   dateSurfaceContent: {
@@ -805,7 +1077,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  dateSurfaceText: { flex: 1, color: "#FFFFFF", fontSize: 14 },
+  dateSurfaceText: { flex: 1, fontSize: 14 },
   datePickerWrap: { marginTop: 6 },
   doneBtn: { marginTop: 6 },
   imagePicker: {
@@ -813,7 +1085,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     borderWidth: 2,
-    borderColor: "#48484A",
+    borderColor: "rgba(128,128,128,0.35)",
     borderStyle: "dashed",
   },
   imagePickerFull: {
@@ -822,15 +1094,16 @@ const styles = StyleSheet.create({
   },
   imageActions: { flexDirection: "row", gap: 8, marginTop: 8 },
   imageActionBtn: { flex: 1, borderRadius: 12, marginVertical: 0 },
-  imagePreviewWrap: { width: "100%", height: "100%" },
+  imagePreviewWrap: { width: "100%", height: "100%", position: "relative" },
   imagePreview: { width: "100%", height: "100%", borderRadius: 10 },
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4 },
   imagePlaceholderText: { opacity: 0.6, fontSize: 12 },
   submitButton: {
     marginTop: 24,
     marginHorizontal: 0,
-    marginBottom: 24,
+    marginBottom: 8,
     borderRadius: 12,
     paddingVertical: 6,
   },
+  saveHint: { textAlign: "center", marginBottom: 24, paddingHorizontal: 8 },
 });

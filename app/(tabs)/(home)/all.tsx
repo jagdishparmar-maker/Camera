@@ -1,18 +1,14 @@
 import { useNotification } from "@/contexts/NotificationContext";
+import { VehicleListCard } from "@/components/VehicleListCard";
 import { getFullList, update } from "@/lib/database";
-import { getFileUrl } from "@/lib/storage";
 import { useRealtime } from "@/hooks/use-realtime";
-import type { Vehicle, VehicleStatus } from "@/lib/vehicle-types";
-import {
-  computeStatus,
-  STATUS_COLORS,
-  STATUS_TEXT_COLORS,
-} from "@/lib/vehicle-types";
+import type { Vehicle } from "@/lib/vehicle-types";
+import { computeStatus } from "@/lib/vehicle-types";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -29,10 +25,7 @@ import PagerView from "react-native-pager-view";
 import {
   ActivityIndicator,
   Button,
-  Card,
-  Chip,
   Icon,
-  IconButton,
   Searchbar,
   SegmentedButtons,
   Surface,
@@ -42,21 +35,6 @@ import {
 } from "react-native-paper";
 
 const COLLECTION = "vehicles";
-
-function formatCheckInDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 export default function AllVehiclesScreen() {
   const theme = useTheme();
@@ -83,6 +61,9 @@ export default function AllVehiclesScreen() {
             searchQuery.toLowerCase().trim(),
           ) ?? false) ||
           (v.Driver_Name?.toLowerCase().includes(
+            searchQuery.toLowerCase().trim(),
+          ) ?? false) ||
+          (v.Transport?.toLowerCase().includes(
             searchQuery.toLowerCase().trim(),
           ) ?? false),
       )
@@ -146,15 +127,20 @@ export default function AllVehiclesScreen() {
           Check_Out_Date: checkOutDate.toISOString(),
           ...(remarks?.trim() && { Remarks: remarks.trim() }),
         });
-      } catch (err) {
-        console.error(err);
-      } finally {
         setExitVehicle(null);
         setExitRemarks("");
         setShowExitModal(false);
+        await loadVehicles(true);
+        showNotification("Vehicle checked out successfully.");
+      } catch (err) {
+        console.error(err);
+        Alert.alert(
+          "Check out failed",
+          "Could not update the vehicle. Check your connection and try again.",
+        );
       }
     },
-    [],
+    [loadVehicles, showNotification],
   );
 
   const openAndroidDateTimePicker = useCallback(
@@ -195,12 +181,18 @@ export default function AllVehiclesScreen() {
     }
   }, [exitVehicle, exitCheckOutDate, exitRemarks, performCheckOut]);
 
+  const openVehicleDetail = useCallback(
+    (v: Vehicle) => {
+      router.push({
+        pathname: "/(tabs)/(home)/vehicle/[id]",
+        params: { id: v.id, vehicleno: v.vehicleno },
+      });
+    },
+    [router],
+  );
+
   const renderVehicleItem = useCallback(
     ({ item }: { item: Vehicle }) => {
-      const imgUri =
-        item.image && typeof item.image === "string"
-          ? getFileUrl(item, item.image)
-          : "";
       const s =
         item.status ??
         computeStatus({
@@ -209,109 +201,16 @@ export default function AllVehiclesScreen() {
           Assigned_Dock: item.Assigned_Dock,
           Dock_In_DateTime: item.Dock_In_DateTime,
         });
-      const statusColor =
-        STATUS_COLORS[s as VehicleStatus] ?? STATUS_COLORS.CheckedOut;
       return (
-        <View style={styles.cardPressable}>
-          <Card
-            style={[
-              styles.vehicleCard,
-              { backgroundColor: theme.colors.surface },
-            ]}
-            mode="elevated"
-          >
-            <Card.Content style={styles.cardContent}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cardMainPressable,
-                  pressed && styles.cardPressed,
-                ]}
-                onPress={() =>
-                  router.push({
-                    pathname: "/(tabs)/(home)/vehicle/[id]",
-                    params: { id: item.id, vehicleno: item.vehicleno },
-                  })
-                }
-              >
-                {imgUri ? (
-                  <Image source={{ uri: imgUri }} style={styles.cardImage} />
-                ) : (
-                  <Surface
-                    style={[
-                      styles.cardImagePlaceholder,
-                      { backgroundColor: theme.colors.surfaceVariant },
-                    ]}
-                    elevation={0}
-                  >
-                    <Icon
-                      source="car"
-                      size={20}
-                      color={theme.colors.primary}
-                    />
-                  </Surface>
-                )}
-                <View style={styles.cardInfo}>
-                  <Text
-                    variant="titleSmall"
-                    style={{ color: theme.colors.onSurface }}
-                    numberOfLines={1}
-                  >
-                    {item.vehicleno}
-                  </Text>
-                  <Text
-                    variant="bodySmall"
-                    style={styles.cardMeta}
-                    numberOfLines={1}
-                  >
-                    {item.Type ?? "—"} • {item.Transport || "—"}
-                  </Text>
-                  {item.Check_In_Date && (
-                    <Text
-                      variant="labelSmall"
-                      style={[
-                        styles.cardCheckIn,
-                        { color: theme.colors.onSurfaceVariant },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {formatCheckInDate(item.Check_In_Date)}
-                    </Text>
-                  )}
-                </View>
-                <Chip
-                  style={[
-                    styles.statusChip,
-                    { backgroundColor: statusColor },
-                  ]}
-                  textStyle={[
-                    styles.statusChipText,
-                    {
-                      color:
-                        STATUS_TEXT_COLORS[s as VehicleStatus] ?? "#FFFFFF",
-                    },
-                  ]}
-                >
-                  {s
-                    .replace(/([A-Z])/g, " $1")
-                    .trim()
-                    .toUpperCase()}
-                </Chip>
-              </Pressable>
-              {s === "DockedOut" && (
-                <IconButton
-                  icon="exit-to-app"
-                  size={22}
-                  iconColor={theme.colors.primary}
-                  onPress={() => handleExitPress(item)}
-                  style={styles.exitIconBtn}
-                />
-              )}
-            </Card.Content>
-          </Card>
-        </View>
+        <VehicleListCard
+          item={item}
+          onPressDetail={openVehicleDetail}
+          onCheckOut={handleExitPress}
+          showCheckOut={s === "DockedOut"}
+        />
       );
     },
-    [theme, router, handleExitPress],
+    [openVehicleDetail, handleExitPress],
   );
 
   const ListEmpty = () => (
@@ -596,31 +495,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { marginBottom: 8 },
   emptySubtitle: { textAlign: "center" },
-  cardPressable: { marginBottom: 8 },
-  cardMainPressable: { flex: 1, flexDirection: "row", alignItems: "center" },
-  cardPressed: { opacity: 0.9 },
-  exitIconBtn: { margin: 0 },
-  vehicleCard: { borderRadius: 12, overflow: "hidden", elevation: 0 },
-  cardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  cardImage: { width: 44, height: 44, borderRadius: 8, marginRight: 12 },
-  cardImagePlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    marginRight: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardInfo: { flex: 1, minWidth: 0 },
-  cardMeta: { marginTop: 2, color: "#A0A0A0", fontSize: 12 },
-  cardCheckIn: { marginTop: 2, fontSize: 11, opacity: 0.9 },
-  statusChip: { marginLeft: 8 },
-  statusChipText: { fontWeight: "600", fontSize: 10 },
   exitModalAvoid: { flex: 1 },
   exitModalBackdrop: {
     flex: 1,

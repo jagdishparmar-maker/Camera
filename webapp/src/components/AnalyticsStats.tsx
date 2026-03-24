@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import type { Vehicle } from "@/lib/vehicle-types";
 import { computeStatus } from "@/lib/vehicle-types";
 
@@ -29,35 +30,43 @@ function Stat({
 }
 
 export function AnalyticsStats({ vehicles }: AnalyticsStatsProps) {
-  // Filter to on-site only (no Check_Out_Date) – ensures correct counts even if parent passes all vehicles
-  const onSite = vehicles.filter((v) => !v.Check_Out_Date);
-  const checkedInToday = onSite.filter((v) => {
-    if (!v.Check_In_Date) return false;
-    const d = new Date(v.Check_In_Date);
-    const today = new Date();
-    return (
-      d.getDate() === today.getDate() &&
-      d.getMonth() === today.getMonth() &&
-      d.getFullYear() === today.getFullYear()
+  const { onSite, checkedInToday, inward, outward, byStatus } = useMemo(() => {
+    const onSiteList = vehicles.filter((v) => !v.Check_Out_Date);
+    const todayList = onSiteList.filter((v) => {
+      if (!v.Check_In_Date) return false;
+      const d = new Date(v.Check_In_Date);
+      const today = new Date();
+      return (
+        d.getDate() === today.getDate() &&
+        d.getMonth() === today.getMonth() &&
+        d.getFullYear() === today.getFullYear()
+      );
+    });
+    const inwardList = onSiteList.filter((v) => v.Type === "Inward");
+    const outwardList = onSiteList.filter((v) => v.Type === "Outward");
+    const byStatusMap = onSiteList.reduce(
+      (acc, v) => {
+        const s =
+          v.status ??
+          computeStatus({
+            Check_Out_Date: v.Check_Out_Date,
+            Dock_Out_DateTime: v.Dock_Out_DateTime,
+            Assigned_Dock: v.Assigned_Dock,
+            Dock_In_DateTime: v.Dock_In_DateTime,
+          });
+        acc[s] = (acc[s] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
     );
-  });
-  const inward = onSite.filter((v) => v.Type === "Inward");
-  const outward = onSite.filter((v) => v.Type === "Outward");
-  const byStatus = onSite.reduce(
-    (acc, v) => {
-      const s =
-        v.status ??
-        computeStatus({
-          Check_Out_Date: v.Check_Out_Date,
-          Dock_Out_DateTime: v.Dock_Out_DateTime,
-          Assigned_Dock: v.Assigned_Dock,
-          Dock_In_DateTime: v.Dock_In_DateTime,
-        });
-      acc[s] = (acc[s] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
+    return {
+      onSite: onSiteList,
+      checkedInToday: todayList,
+      inward: inwardList,
+      outward: outwardList,
+      byStatus: byStatusMap,
+    };
+  }, [vehicles]);
 
   const divider = <span className="text-[var(--border-strong)]">|</span>;
 

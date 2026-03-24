@@ -21,10 +21,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
+  Button,
   Chip,
+  Divider,
   Icon,
   IconButton,
-  List,
   Surface,
   Text,
   useTheme,
@@ -34,24 +35,14 @@ const COLLECTION = "vehicles";
 const DOCK_COUNT = 10;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-function DetailItem({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string | number | undefined;
-  icon: string;
-}) {
-  const display = value != null && value !== "" ? String(value) : "—";
-  return (
-    <List.Item
-      title={display}
-      description={label}
-      left={(props) => <List.Icon {...props} icon={icon} />}
-      titleNumberOfLines={2}
-    />
-  );
+function humanStatus(s: VehicleStatus): string {
+  const m: Record<VehicleStatus, string> = {
+    CheckedIn: "Checked in",
+    CheckedOut: "Checked out",
+    DockedIn: "At dock",
+    DockedOut: "Left dock",
+  };
+  return m[s] ?? s;
 }
 
 export default function VehicleDetailScreen() {
@@ -89,25 +80,46 @@ export default function VehicleDetailScreen() {
   }, [loadVehicle]);
 
   const handleAssignDock = useCallback(
-    async (dockNum: number) => {
+    async (dockNum: number, currentVehicle: Vehicle) => {
       if (!id) return;
+      if (currentVehicle.Assigned_Dock === dockNum) {
+        setAssignDockVisible(false);
+        return;
+      }
       setAssigning(true);
       try {
-        const dockInTime = new Date().toISOString();
-        await update<Vehicle>(COLLECTION, id, {
+        const hadDock =
+          currentVehicle.Assigned_Dock != null &&
+          currentVehicle.Assigned_Dock >= 1 &&
+          currentVehicle.Assigned_Dock <= DOCK_COUNT;
+        const wasDockedOutOnSite =
+          !!currentVehicle.Dock_Out_DateTime && !currentVehicle.Check_Out_Date;
+
+        const payload: Record<string, unknown> = {
           Assigned_Dock: dockNum,
-          Dock_In_DateTime: dockInTime,
-          status: "DockedIn",
-        });
+          status: "DockedIn" as VehicleStatus,
+        };
+        if (!hadDock || wasDockedOutOnSite) {
+          payload.Dock_In_DateTime = new Date().toISOString();
+        }
+        if (wasDockedOutOnSite) {
+          payload.Dock_Out_DateTime = null;
+        }
+
+        await update<Vehicle>(COLLECTION, id, payload);
         setAssignDockVisible(false);
         await loadVehicle();
       } catch (err) {
         console.error(err);
+        Alert.alert(
+          "Could not update dock",
+          err instanceof Error ? err.message : "Please try again.",
+        );
       } finally {
         setAssigning(false);
       }
     },
-    [id, loadVehicle]
+    [id, loadVehicle],
   );
 
   const getVehicleShareText = useCallback((v: Vehicle) => {
@@ -194,7 +206,7 @@ export default function VehicleDetailScreen() {
             }
           },
         },
-      ]
+      ],
     );
   }, [id, vehicle?.vehicleno, router]);
 
@@ -220,7 +232,7 @@ export default function VehicleDetailScreen() {
     });
   }, [vehicle, navigation, handleShare]);
 
-  const openAssignDock = useCallback(async () => {
+  const openDockPicker = useCallback(async () => {
     setAssignDockVisible(true);
     setLoadingDocks(true);
     try {
@@ -277,13 +289,33 @@ export default function VehicleDetailScreen() {
   const detailStatusColor = STATUS_COLORS[detailStatus as VehicleStatus] ?? STATUS_COLORS.CheckedOut;
   const detailStatusTextColor = STATUS_TEXT_COLORS[detailStatus as VehicleStatus] ?? "#FFFFFF";
 
+  const onSite = !vehicle.Check_Out_Date;
+  const hasDockAssigned =
+    vehicle.Assigned_Dock != null &&
+    vehicle.Assigned_Dock >= 1 &&
+    vehicle.Assigned_Dock <= DOCK_COUNT;
+  const canManageDock = onSite;
+
+  const expandUser = (
+    expand: Vehicle["expand"],
+    key: "Checked_In_By" | "Checked_Out_By",
+    fallback?: string,
+  ) => {
+    const u = expand?.[key];
+    if (typeof u === "object" && u != null) {
+      return u.name ?? u.email ?? fallback ?? "—";
+    }
+    return fallback ?? "—";
+  };
+
   return (
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {vehicle.image && (
+      {/* Hero */}
+      {vehicle.image ? (
         <View style={styles.hero}>
           <Pressable style={styles.heroImageWrap} onPress={() => setFullImageVisible(true)}>
             <Image
@@ -296,120 +328,185 @@ export default function VehicleDetailScreen() {
               style={[styles.statusChip, { backgroundColor: detailStatusColor }]}
               textStyle={[styles.statusText, { color: detailStatusTextColor }]}
             >
-              {detailStatus.replace(/([A-Z])/g, " $1").trim().toUpperCase()}
+              {humanStatus(detailStatus as VehicleStatus).toUpperCase()}
             </Chip>
           </View>
         </View>
+      ) : (
+        <Surface style={styles.heroPlaceholder} elevation={0}>
+          <Icon source="car-side" size={56} color={theme.colors.primary} />
+          <Text variant="headlineSmall" style={styles.heroPlaceholderTitle}>
+            {vehicle.vehicleno}
+          </Text>
+          <Chip
+            style={[styles.statusChip, { backgroundColor: detailStatusColor, marginTop: 8 }]}
+            textStyle={[styles.statusText, { color: detailStatusTextColor }]}
+          >
+            {humanStatus(detailStatus as VehicleStatus).toUpperCase()}
+          </Chip>
+        </Surface>
       )}
-      <View style={styles.body}>
-        <List.Section>
-          <List.Subheader>Vehicle Info</List.Subheader>
-          <DetailItem label="Vehicle" value={vehicle.vehicleno} icon="car" />
-          <DetailItem label="Type" value={vehicle.Type} icon="swap-vertical" />
-          <DetailItem
-            label="Check In"
-            value={vehicle.Check_In_Date ? formatDateTime(vehicle.Check_In_Date) : undefined}
-            icon="calendar-clock"
-          />
-        </List.Section>
-        <List.Section>
-          <List.Subheader>Parties</List.Subheader>
-          <DetailItem label="Transport" value={vehicle.Transport} icon="truck" />
-          <DetailItem label="Customer" value={vehicle.Customer} icon="account" />
-          <DetailItem label="Driver" value={vehicle.Driver_Name} icon="account" />
-          <DetailItem label="Contact" value={vehicle.Contact_No} icon="phone" />
-        </List.Section>
-        <List.Section>
-          <List.Subheader>Dock & Check Out</List.Subheader>
-          {detailStatus === "CheckedIn" && (
-            <List.Item
-              title="Assign Dock"
-              description="Assign a dock number and set status to Dock In"
-              left={(props) => <List.Icon {...props} icon="warehouse" />}
-              right={(props) => <List.Icon {...props} icon="chevron-right" />}
-              onPress={openAssignDock}
-              style={styles.assignDockItem}
-            />
-          )}
-          <DetailItem
-            label="Assigned Dock"
-            value={vehicle.Assigned_Dock != null ? String(vehicle.Assigned_Dock) : undefined}
-            icon="warehouse"
-          />
-          <DetailItem
-            label="Dock In"
-            value={vehicle.Dock_In_DateTime ? formatDateTime(vehicle.Dock_In_DateTime) : undefined}
-            icon="calendar"
-          />
-          <DetailItem
-            label="Dock Out"
-            value={vehicle.Dock_Out_DateTime ? formatDateTime(vehicle.Dock_Out_DateTime) : undefined}
-            icon="calendar"
-          />
-          <DetailItem
-            label="Check Out"
-            value={vehicle.Check_Out_Date ? formatDateTime(vehicle.Check_Out_Date) : undefined}
-            icon="calendar-check"
-          />
-        </List.Section>
-        <List.Section>
-          <List.Subheader>Actions</List.Subheader>
-          <List.Item
-            title="Edit Vehicle"
-            description="Update vehicle details"
-            left={(props) => <List.Icon {...props} icon="pencil" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleEdit}
-            style={styles.assignDockItem}
-          />
-          <List.Item
-            title="Delete Vehicle"
-            description="Remove this record permanently"
-            left={(props) => <List.Icon {...props} icon="delete-outline" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleDelete}
-            disabled={deleting}
-            style={[styles.assignDockItem, { opacity: deleting ? 0.6 : 1 }]}
-          />
-        </List.Section>
-        <List.Section>
-          <List.Subheader>Share</List.Subheader>
-          <List.Item
-            title="Share to WhatsApp, Facebook..."
-            description="Share image and vehicle details"
-            left={(props) => <List.Icon {...props} icon="share-variant" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={handleShare}
-            style={styles.assignDockItem}
-          />
-        </List.Section>
-        <List.Section>
-          <List.Subheader>Other</List.Subheader>
-          <DetailItem label="Remarks" value={vehicle.Remarks} icon="note" />
-          <DetailItem
-            label="Checked In By"
-            value={
-              typeof vehicle.expand?.Checked_In_By === "object"
-                ? vehicle.expand.Checked_In_By?.name ??
-                  vehicle.expand.Checked_In_By?.email ??
-                  vehicle.Checked_In_By
-                : vehicle.Checked_In_By
-            }
-            icon="account-check"
-          />
-          <DetailItem
-            label="Checked Out By"
-            value={
-              typeof vehicle.expand?.Checked_Out_By === "object"
-                ? vehicle.expand.Checked_Out_By?.name ??
-                  vehicle.expand.Checked_Out_By?.email ??
-                  vehicle.Checked_Out_By
-                : vehicle.Checked_Out_By
-            }
-            icon="account-check"
-          />
-        </List.Section>
-      </View>
+
+      {/* Title strip (when photo exists) */}
+      {vehicle.image ? (
+        <Surface style={styles.titleStrip} elevation={0}>
+          <Text variant="headlineSmall" style={styles.titleStripText}>
+            {vehicle.vehicleno}
+          </Text>
+          {vehicle.Type ? (
+            <Text variant="labelMedium" style={styles.titleStripMeta}>
+              {vehicle.Type}
+            </Text>
+          ) : null}
+        </Surface>
+      ) : null}
+
+      {/* Dock — primary operational block */}
+      <Surface style={styles.card} elevation={1}>
+        <Text variant="labelSmall" style={styles.cardEyebrow}>
+          Dock
+        </Text>
+        {!onSite ? (
+          <Text variant="bodyMedium" style={styles.muted}>
+            Vehicle has checked out — dock actions are not available.
+          </Text>
+        ) : (
+          <>
+            <View style={styles.dockHighlightRow}>
+              {hasDockAssigned ? (
+                <>
+                  <View style={styles.dockBig}>
+                    <Text variant="displaySmall" style={styles.dockBigNum}>
+                      {vehicle.Assigned_Dock}
+                    </Text>
+                    <Text variant="labelMedium" style={styles.muted}>
+                      Assigned bay
+                    </Text>
+                  </View>
+                  <View style={styles.dockMetaCol}>
+                    {vehicle.Dock_In_DateTime ? (
+                      <Text variant="bodySmall" style={styles.dockMetaLine}>
+                        In: {formatDateTime(vehicle.Dock_In_DateTime)}
+                      </Text>
+                    ) : null}
+                    {vehicle.Dock_Out_DateTime ? (
+                      <Text variant="bodySmall" style={styles.dockMetaLine}>
+                        Out: {formatDateTime(vehicle.Dock_Out_DateTime)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </>
+              ) : (
+                <Text variant="bodyLarge" style={styles.noDockText}>
+                  No dock assigned yet
+                </Text>
+              )}
+            </View>
+            {canManageDock ? (
+              <Button
+                mode="contained"
+                icon={hasDockAssigned ? "swap-horizontal" : "warehouse"}
+                onPress={openDockPicker}
+                style={styles.dockCta}
+                contentStyle={styles.dockCtaContent}
+              >
+                {hasDockAssigned ? "Change dock" : "Assign dock"}
+              </Button>
+            ) : null}
+          </>
+        )}
+      </Surface>
+
+      {/* People & logistics */}
+      <Surface style={styles.card} elevation={1}>
+        <Text variant="labelSmall" style={styles.cardEyebrow}>
+          People & logistics
+        </Text>
+        <InfoRow icon="truck" label="Transport" value={vehicle.Transport} />
+        <Divider style={styles.divider} />
+        <InfoRow icon="account-tie" label="Customer" value={vehicle.Customer} highlight />
+        <Divider style={styles.divider} />
+        <InfoRow icon="account" label="Driver" value={vehicle.Driver_Name} />
+        <Divider style={styles.divider} />
+        <InfoRow icon="phone" label="Contact" value={vehicle.Contact_No} />
+      </Surface>
+
+      {/* Timeline */}
+      <Surface style={styles.card} elevation={1}>
+        <Text variant="labelSmall" style={styles.cardEyebrow}>
+          Timeline
+        </Text>
+        <TimelineStep
+          icon="login"
+          label="Check in"
+          value={vehicle.Check_In_Date ? formatDateTime(vehicle.Check_In_Date) : "—"}
+          active={!!vehicle.Check_In_Date}
+        />
+        <TimelineStep
+          icon="warehouse"
+          label="Dock in"
+          value={vehicle.Dock_In_DateTime ? formatDateTime(vehicle.Dock_In_DateTime) : "—"}
+          active={!!vehicle.Dock_In_DateTime}
+        />
+        <TimelineStep
+          icon="logout"
+          label="Dock out"
+          value={vehicle.Dock_Out_DateTime ? formatDateTime(vehicle.Dock_Out_DateTime) : "—"}
+          active={!!vehicle.Dock_Out_DateTime}
+        />
+        <TimelineStep
+          icon="exit-to-app"
+          label="Check out"
+          value={vehicle.Check_Out_Date ? formatDateTime(vehicle.Check_Out_Date) : "—"}
+          active={!!vehicle.Check_Out_Date}
+          isLast
+        />
+      </Surface>
+
+      {/* Actions */}
+      <Surface style={styles.card} elevation={1}>
+        <Text variant="labelSmall" style={styles.cardEyebrow}>
+          Actions
+        </Text>
+        <View style={styles.actionRow}>
+          <Button mode="outlined" icon="pencil" onPress={handleEdit} style={styles.actionBtn}>
+            Edit
+          </Button>
+          <Button mode="outlined" icon="share-variant" onPress={handleShare} style={styles.actionBtn}>
+            Share
+          </Button>
+        </View>
+        <Button
+          mode="outlined"
+          icon="delete-outline"
+          textColor={theme.colors.error}
+          onPress={handleDelete}
+          disabled={deleting}
+          style={styles.deleteBtn}
+        >
+          Delete vehicle
+        </Button>
+      </Surface>
+
+      {/* Notes & audit */}
+      <Surface style={[styles.card, styles.lastCard]} elevation={1}>
+        <Text variant="labelSmall" style={styles.cardEyebrow}>
+          Notes & audit
+        </Text>
+        <InfoRow icon="note-text" label="Remarks" value={vehicle.Remarks} multiline />
+        <Divider style={styles.divider} />
+        <InfoRow
+          icon="account-check"
+          label="Checked in by"
+          value={expandUser(vehicle.expand, "Checked_In_By", vehicle.Checked_In_By)}
+        />
+        <Divider style={styles.divider} />
+        <InfoRow
+          icon="account-arrow-right"
+          label="Checked out by"
+          value={expandUser(vehicle.expand, "Checked_Out_By", vehicle.Checked_Out_By)}
+        />
+      </Surface>
 
       <Modal
         visible={fullImageVisible}
@@ -417,16 +514,15 @@ export default function VehicleDetailScreen() {
         animationType="fade"
         onRequestClose={() => setFullImageVisible(false)}
       >
-        <Pressable
-          style={styles.fullImageBackdrop}
-          onPress={() => setFullImageVisible(false)}
-        >
+        <Pressable style={styles.fullImageBackdrop} onPress={() => setFullImageVisible(false)}>
           <View style={styles.fullImageContainer}>
-            <Image
-              source={{ uri: getFileUrl(vehicle, vehicle.image) }}
-              style={styles.fullImage}
-              resizeMode="contain"
-            />
+            {vehicle.image ? (
+              <Image
+                source={{ uri: getFileUrl(vehicle, vehicle.image) }}
+                style={styles.fullImage}
+                resizeMode="contain"
+              />
+            ) : null}
             <IconButton
               icon="close"
               size={24}
@@ -454,7 +550,7 @@ export default function VehicleDetailScreen() {
           >
             <View style={styles.dialogHeader}>
               <Text variant="titleMedium" style={[styles.dialogTitle, { color: theme.colors.onSurface }]}>
-                Assign Dock
+                {hasDockAssigned ? "Change dock" : "Assign dock"}
               </Text>
               <IconButton
                 icon="close"
@@ -465,7 +561,9 @@ export default function VehicleDetailScreen() {
               />
             </View>
             <Text variant="bodySmall" style={[styles.dialogSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-              Tap a free dock to assign {vehicle.vehicleno}
+              {hasDockAssigned
+                ? `Move ${vehicle.vehicleno} to another free bay. Your dock-in time is kept unless this is a new assignment.`
+                : `Choose a free bay for ${vehicle.vehicleno}.`}
             </Text>
             {loadingDocks ? (
               <View style={styles.dockGridLoader}>
@@ -475,25 +573,39 @@ export default function VehicleDetailScreen() {
               <View style={styles.dockGrid}>
                 {Array.from({ length: DOCK_COUNT }, (_, i) => i + 1).map((dockNum) => {
                   const occupiedVehicle = vehiclesByDock[dockNum];
-                  const isFree = !occupiedVehicle;
+                  const isSelf = occupiedVehicle?.id === vehicle.id;
+                  const blockedByOther = !!occupiedVehicle && !isSelf;
+                  const isCurrentBay = vehicle.Assigned_Dock === dockNum;
+
                   return (
                     <Pressable
                       key={dockNum}
-                      onPress={() => isFree && !assigning && handleAssignDock(dockNum)}
-                      disabled={!isFree || assigning}
+                      onPress={() => {
+                        if (assigning) return;
+                        if (isSelf || isCurrentBay) {
+                          setAssignDockVisible(false);
+                          return;
+                        }
+                        if (!blockedByOther) void handleAssignDock(dockNum, vehicle);
+                      }}
+                      disabled={blockedByOther}
                       style={({ pressed }) => [
                         styles.dockSlot,
-                        pressed && isFree && styles.dockSlotPressed,
+                        pressed && !blockedByOther && styles.dockSlotPressed,
                       ]}
                     >
                       <Surface
                         style={[
                           styles.dockSlotSurface,
                           {
-                            backgroundColor: isFree
-                              ? theme.colors.primaryContainer
-                              : theme.colors.surfaceVariant,
-                            opacity: isFree ? 1 : 0.7,
+                            backgroundColor: blockedByOther
+                              ? theme.colors.surfaceVariant
+                              : isSelf || isCurrentBay
+                                ? theme.colors.secondaryContainer
+                                : theme.colors.primaryContainer,
+                            opacity: blockedByOther ? 0.65 : 1,
+                            borderWidth: isCurrentBay ? 2 : 0,
+                            borderColor: theme.colors.primary,
                           },
                         ]}
                         elevation={0}
@@ -503,22 +615,36 @@ export default function VehicleDetailScreen() {
                           style={[
                             styles.dockSlotLabel,
                             {
-                              color: isFree ? theme.colors.onPrimaryContainer : theme.colors.onSurfaceVariant,
+                              color: blockedByOther
+                                ? theme.colors.onSurfaceVariant
+                                : isSelf || isCurrentBay
+                                  ? theme.colors.onSecondaryContainer
+                                  : theme.colors.onPrimaryContainer,
                             },
                           ]}
                         >
-                          DOCK{dockNum}
+                          {dockNum}
                         </Text>
-                        {isFree ? (
-                          <Icon source="plus" size={14} color={theme.colors.primary} />
-                        ) : (
+                        {blockedByOther ? (
                           <Text
                             variant="labelSmall"
                             style={{ color: theme.colors.onSurfaceVariant }}
                             numberOfLines={1}
                           >
-                            {occupiedVehicle.vehicleno}
+                            {occupiedVehicle!.vehicleno}
                           </Text>
+                        ) : isSelf || isCurrentBay ? (
+                          <View style={styles.dockSlotCurrent}>
+                            <Icon source="check-circle" size={14} color={theme.colors.primary} />
+                            <Text
+                              variant="labelSmall"
+                              style={{ color: theme.colors.onSecondaryContainer, fontWeight: "700" }}
+                            >
+                              Current
+                            </Text>
+                          </View>
+                        ) : (
+                          <Icon source="plus" size={16} color={theme.colors.primary} />
                         )}
                       </Surface>
                     </Pressable>
@@ -526,6 +652,14 @@ export default function VehicleDetailScreen() {
                 })}
               </View>
             )}
+            {assigning ? (
+              <View style={styles.assigningRow}>
+                <ActivityIndicator size="small" />
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                  Updating…
+                </Text>
+              </View>
+            ) : null}
           </Pressable>
         </Pressable>
       </Modal>
@@ -533,13 +667,155 @@ export default function VehicleDetailScreen() {
   );
 }
 
+function InfoRow({
+  icon,
+  label,
+  value,
+  highlight,
+  multiline,
+}: {
+  icon: string;
+  label: string;
+  value?: string | null;
+  highlight?: boolean;
+  multiline?: boolean;
+}) {
+  const display = value != null && String(value).trim() !== "" ? String(value) : "—";
+  return (
+    <View style={styles.infoRow}>
+      <Icon source={icon} size={20} color="#8E8E93" />
+      <View style={styles.infoRowText}>
+        <Text variant="labelSmall" style={styles.infoLabel}>
+          {label}
+        </Text>
+        <Text
+          variant="bodyMedium"
+          numberOfLines={multiline ? 4 : 2}
+          style={highlight ? styles.infoValueHighlight : styles.infoValue}
+        >
+          {display}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function TimelineStep({
+  icon,
+  label,
+  value,
+  active,
+  isLast,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  active: boolean;
+  isLast?: boolean;
+}) {
+  return (
+    <View style={styles.timelineRow}>
+      <View style={styles.timelineRail}>
+        <View style={[styles.timelineDot, active && styles.timelineDotActive]} />
+        {!isLast ? <View style={[styles.timelineLine, active && styles.timelineLineActive]} /> : null}
+      </View>
+      <View style={styles.timelineBody}>
+        <Text variant="labelSmall" style={styles.timelineLabel}>
+          {label}
+        </Text>
+        <Text
+          variant="bodyMedium"
+          style={[styles.timelineValue, !active && styles.muted]}
+        >
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   scroll: { flex: 1 },
-  content: { paddingBottom: 32 },
+  content: { paddingBottom: 40 },
   hero: { width: "100%", aspectRatio: 16 / 9, position: "relative" },
   heroImageWrap: { flex: 1, width: "100%", height: "100%" },
   heroImage: { width: "100%", height: "100%", resizeMode: "cover" },
+  heroPlaceholder: {
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    backgroundColor: "#2C2C2E",
+  },
+  heroPlaceholderTitle: { color: "#FFFFFF", marginTop: 8, fontWeight: "700" },
+  heroOverlay: { position: "absolute", bottom: 16, left: 16 },
+  statusChip: { paddingHorizontal: 12, alignSelf: "flex-start" },
+  statusText: { fontWeight: "700", fontSize: 11 },
+  titleStrip: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: "#1C1C1E",
+  },
+  titleStripText: { color: "#FFFFFF", fontWeight: "700" },
+  titleStripMeta: { color: "#AEAEB2", marginTop: 4 },
+  card: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: "#2C2C2E",
+  },
+  lastCard: { marginBottom: 8 },
+  cardEyebrow: {
+    color: "#8E8E93",
+    letterSpacing: 1,
+    marginBottom: 12,
+    fontWeight: "600",
+  },
+  muted: { color: "#8E8E93" },
+  dockHighlightRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  dockBig: { flex: 1 },
+  dockBigNum: { color: "#FFFFFF", fontWeight: "800", lineHeight: 52 },
+  dockMetaCol: { flex: 1.2, paddingLeft: 8 },
+  dockMetaLine: { color: "#AEAEB2", marginBottom: 4 },
+  noDockText: { color: "#AEAEB2", marginBottom: 8 },
+  dockCta: { borderRadius: 10 },
+  dockCtaContent: { paddingVertical: 6 },
+  infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 4 },
+  infoRowText: { flex: 1, minWidth: 0 },
+  infoLabel: { color: "#8E8E93", marginBottom: 2 },
+  infoValue: { color: "#FFFFFF" },
+  infoValueHighlight: { color: "#5AC8FA", fontWeight: "600" },
+  divider: { backgroundColor: "#48484A", marginVertical: 8 },
+  timelineRow: { flexDirection: "row", minHeight: 56 },
+  timelineRail: { width: 24, alignItems: "center" },
+  timelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#48484A",
+    marginTop: 4,
+  },
+  timelineDotActive: { backgroundColor: "#5AC8FA" },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    minHeight: 28,
+    backgroundColor: "#48484A",
+    marginVertical: 2,
+  },
+  timelineLineActive: { backgroundColor: "#3A3A5C" },
+  timelineBody: { flex: 1, paddingBottom: 8 },
+  timelineLabel: { color: "#8E8E93", marginBottom: 2 },
+  timelineValue: { color: "#FFFFFF" },
+  actionRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  actionBtn: { flex: 1 },
+  deleteBtn: { borderColor: "#FF453A33" },
   fullImageBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.9)",
@@ -561,11 +837,6 @@ const styles = StyleSheet.create({
     right: 16,
     backgroundColor: "rgba(255,255,255,0.2)",
   },
-  heroOverlay: { position: "absolute", bottom: 16, left: 16 },
-  statusChip: { paddingHorizontal: 12 },
-  statusText: { fontWeight: "700" },
-  body: { paddingTop: 8 },
-  assignDockItem: { backgroundColor: "transparent" },
   dialogBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -595,14 +866,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dockSlot: { width: "31%" },
-  dockSlotPressed: { opacity: 0.8 },
+  dockSlotPressed: { opacity: 0.85 },
   dockSlotSurface: {
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 52,
+    minHeight: 64,
   },
-  dockSlotLabel: { fontWeight: "600", marginBottom: 2 },
+  dockSlotLabel: { fontWeight: "700", marginBottom: 4 },
+  dockSlotCurrent: { flexDirection: "row", alignItems: "center", gap: 4 },
+  assigningRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    justifyContent: "center",
+  },
 });
