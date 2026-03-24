@@ -1,3 +1,4 @@
+import { FormScreenScroll } from "@/components/FormScreenScroll";
 import { getFullList, getOne, update } from "@/lib/database";
 import { getFileUrl } from "@/lib/storage";
 import type { Vehicle, VehicleStatus } from "@/lib/vehicle-types";
@@ -9,10 +10,8 @@ import {
   Alert,
   Dimensions,
   Image,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
@@ -253,18 +252,8 @@ export default function EditVehicleScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
-    >
-      <ScrollView
-        style={styles.formScroll}
-        contentContainerStyle={styles.formScrollContent}
-        showsVerticalScrollIndicator={true}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
+    <View style={styles.container}>
+      <FormScreenScroll>
         <List.Section style={styles.listSection}>
           <List.Subheader style={styles.subheader}>Edit Vehicle</List.Subheader>
           <View style={styles.formSection}>
@@ -481,19 +470,13 @@ export default function EditVehicleScreen() {
         >
           Save Changes
         </Button>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </FormScreenScroll>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  formScroll: { flex: 1 },
-  formScrollContent: {
-    paddingBottom: 120,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
   listSection: { marginTop: 0 },
   subheader: { paddingHorizontal: 0, paddingVertical: 8 },
   formSection: { paddingBottom: 20, gap: 4 },

@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Image,
+  KeyboardAvoidingView,
   LayoutAnimation,
   Modal,
   Platform,
@@ -21,6 +22,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import DateTimePicker, {
   DateTimePickerAndroid,
 } from "@react-native-community/datetimepicker";
@@ -381,21 +383,37 @@ export default function HomeScreen() {
 
       {showExitModal && exitVehicle && (
         <Modal visible transparent animationType="slide">
-          <Pressable
-            style={styles.exitModalBackdrop}
-            onPress={() => {
-              setExitVehicle(null);
-              setExitRemarks("");
-              setShowExitModal(false);
-            }}
+          <KeyboardAvoidingView
+            style={styles.exitModalAvoid}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
           >
             <Pressable
-              style={[
-                styles.exitModalContent,
-                { backgroundColor: theme.colors.surface },
-              ]}
-              onPress={(e) => e.stopPropagation()}
+              style={styles.exitModalBackdrop}
+              onPress={() => {
+                setExitVehicle(null);
+                setExitRemarks("");
+                setShowExitModal(false);
+              }}
             >
+              <KeyboardAwareScrollView
+                keyboardShouldPersistTaps="handled"
+                enableOnAndroid
+                enableAutomaticScroll
+                enableResetScrollToCoords={false}
+                extraScrollHeight={Platform.OS === "ios" ? 28 : 40}
+                extraHeight={80}
+                bounces={false}
+                showsVerticalScrollIndicator={false}
+                style={styles.exitModalScroll}
+                nestedScrollEnabled
+              >
+                <Pressable
+                  style={[
+                    styles.exitModalContent,
+                    { backgroundColor: theme.colors.surface },
+                  ]}
+                  onPress={(e) => e.stopPropagation()}
+                >
               <Text
                 variant="titleMedium"
                 style={[
@@ -499,8 +517,10 @@ export default function HomeScreen() {
                   Check Out
                 </Button>
               </View>
+                </Pressable>
+              </KeyboardAwareScrollView>
             </Pressable>
-          </Pressable>
+          </KeyboardAvoidingView>
         </Modal>
       )}
     </View>
@@ -774,11 +794,13 @@ const styles = StyleSheet.create({
     bottom: 24,
     borderRadius: 16,
   },
+  exitModalAvoid: { flex: 1 },
   exitModalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
+  exitModalScroll: { width: "100%", maxHeight: "92%" },
   exitModalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
