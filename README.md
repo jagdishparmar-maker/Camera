@@ -1,65 +1,150 @@
-# Welcome to your Expo app 👋
+# IntoShip GateMS (Expo)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Gate management app built with [Expo](https://expo.dev) (SDK 54), [Expo Router](https://docs.expo.dev/router/introduction/), and [PocketBase](https://pocketbase.io/).
 
-## Get started
+## Prerequisites
 
-1. Install dependencies
+- **Node.js** (LTS recommended)
+- **npm**
+- For device builds: [EAS CLI](https://docs.expo.dev/build/setup/) (`npm i -g eas-cli` or use `npx eas`)
+- For local Android/iOS native runs: Android Studio / Xcode as in [Expo docs](https://docs.expo.dev/workflow/android-studio-emulator/)
 
-   ```bash
-   npm install
-   ```
+## Install and run locally
 
-2. Set up PocketBase (optional - for backend features)
+```bash
+npm install
+```
 
-   - [Download PocketBase](https://pocketbase.io/docs/) and run it locally, or use a hosted instance
-   - Copy `.env.example` to `.env` and set `EXPO_PUBLIC_POCKETBASE_URL` (default: `http://127.0.0.1:8090`)
-   - For physical devices, use your machine's local IP instead of localhost
+### Environment
 
-3. Start the app
+- Copy `.env.example` to `.env` and set **`EXPO_PUBLIC_POCKETBASE_URL`** (e.g. `http://127.0.0.1:8090` for local PocketBase).
+- On a **physical device**, use your computer’s LAN IP instead of `localhost` / `127.0.0.1`.
 
-   ```bash
-   npx expo start
-   ```
+### Start the dev server
 
-## PocketBase Backend
+```bash
+npx expo start
+```
 
-This project is configured to use [PocketBase](https://pocketbase.io/) for:
+From the dev menu you can open the app in:
 
-- **Database** – CRUD via `lib/database.ts` (`getList`, `getOne`, `create`, `update`, `remove`)
-- **Realtime** – Subscriptions via `lib/realtime.ts` and `hooks/use-realtime.ts`
-- **File storage** – Upload files with `create()`/`update()`, get URLs with `getFileUrl()` from `lib/storage.ts`
-- **Auth** – `hooks/use-pocketbase-auth.ts` for sign in, sign up, sign out
+- A [**development build**](https://docs.expo.dev/develop/development-builds/introduction/) (recommended when using native modules and `expo-dev-client`)
+- An **Android emulator** or **iOS simulator**
+- **Expo Go** (quick try; some features are limited vs a dev or production build)
 
-In the output, you'll find options to open the app in a
+### Web
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+```bash
+npm run web
+```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Lint
 
-## Get a fresh project
+```bash
+npm run lint
+```
 
-When you're ready, run:
+## PocketBase backend
+
+The app uses PocketBase for database access, realtime, file storage, and auth. See `lib/database.ts`, `lib/realtime.ts`, `lib/storage.ts`, and related hooks.
+
+## EAS Build profiles (`eas.json`)
+
+| Profile         | Use case                         | `developmentClient` | Channel        |
+|----------------|-----------------------------------|---------------------|----------------|
+| **development** | Dev client for daily development | yes                 | `development`  |
+| **preview**     | Internal / QA APK/IPA            | no                  | `preview`      |
+| **production**  | Store or internal release        | no                  | `production`   |
+
+Log in once:
+
+```bash
+eas login
+```
+
+### Development build (custom dev client)
+
+Installs a build of your app that includes **`expo-dev-client`** so you can load the Metro bundler from `expo start`. Use the **development** profile.
+
+```bash
+eas build --profile development --platform android
+eas build --profile development --platform ios
+```
+
+After install, start the project with `npx expo start` and open the dev build on device/simulator.
+
+### Preview build (internal testing, no dev menu)
+
+```bash
+eas build --profile preview --platform android
+eas build --profile preview --platform ios
+```
+
+### Production build
+
+```bash
+eas build --profile production --platform android
+eas build --profile production --platform ios
+```
+
+`production` uses **`autoIncrement`** for Android version code (see `eas.json`). Submit to stores when ready:
+
+```bash
+eas submit --profile production --platform android
+eas submit --profile production --platform ios
+```
+
+## Over-the-air updates (EAS Update)
+
+The project is configured with **`expo-updates`**, **`runtimeVersion`** (`appVersion` policy), and **update channels** that match EAS Build profiles. Production/preview/dev installs only receive updates published to **their** channel.
+
+Publish a JS/asset update without a new store binary (when native code and `expo.version` / runtime still match):
+
+```bash
+# Production channel (for builds created with --profile production)
+npm run update:production -- --message "Describe this release"
+
+# Preview channel
+npm run update:preview -- --message "QA fix"
+```
+
+Equivalent:
+
+```bash
+eas update --channel production --message "Describe this release"
+eas update --channel preview --message "QA fix"
+```
+
+Bump **`expo.version`** in `app.json` when you ship a **new native** build; OTAs target the same runtime as installed binaries.
+
+## Local native builds (optional)
+
+After `npx expo prebuild` (if you use a bare workflow) or when using `expo run:*` with a generated `android` / `ios` folder:
+
+```bash
+npm run android
+npm run ios
+```
+
+These run `expo run:android` and `expo run:ios`. For a managed workflow without committing native folders, prefer **EAS Build** for reproducible artifacts.
+
+## Project layout
+
+- **`app/`** – Expo Router screens and layouts
+- **`components/`** – Shared UI
+- **`lib/`** – PocketBase, theme, utilities
+
+## Reset starter (optional)
 
 ```bash
 npm run reset-project
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Moves sample code to **`app-example`** and creates a blank **`app`** directory.
 
 ## Learn more
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [Expo documentation](https://docs.expo.dev/)
+- [EAS Build](https://docs.expo.dev/build/introduction/)
+- [EAS Update](https://docs.expo.dev/eas-update/introduction/)
+- [Development builds](https://docs.expo.dev/develop/development-builds/introduction/)
