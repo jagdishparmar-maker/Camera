@@ -96,9 +96,9 @@ eas submit --profile production --platform ios
 
 ## Over-the-air updates (EAS Update)
 
-The project is configured with **`expo-updates`**, **`runtimeVersion`** (`appVersion` policy), and **update channels** that match EAS Build profiles. Production/preview/dev installs only receive updates published to **their** channel.
+The project is configured with **`expo-updates`**, a static **`runtimeVersion`** string in `app.json` (must stay in sync with native release expectations), and **update channels** that match EAS Build profiles. Production/preview/dev installs only receive updates published to **their** channel.
 
-Publish a JS/asset update without a new store binary (when native code and `expo.version` / runtime still match):
+Publish a JS/asset update without a new store binary (when native code and **`runtimeVersion`** still match):
 
 ```bash
 # Production channel (for builds created with --profile production)
@@ -115,18 +115,55 @@ eas update --channel production --message "Describe this release"
 eas update --channel preview --message "QA fix"
 ```
 
-Bump **`expo.version`** in `app.json` when you ship a **new native** build; OTAs target the same runtime as installed binaries.
+Bump **`expo.version`** and **`runtimeVersion`** in `app.json` together when you ship a **new native** build that should receive a separate OTA line.
 
 ## Local native builds (optional)
 
-After `npx expo prebuild` (if you use a bare workflow) or when using `expo run:*` with a generated `android` / `ios` folder:
+### Quick run from the CLI
+
+With an `android` / `ios` folder present (this repo includes **`android/`** for bare workflow):
 
 ```bash
 npm run android
 npm run ios
 ```
 
-These run `expo run:android` and `expo run:ios`. For a managed workflow without committing native folders, prefer **EAS Build** for reproducible artifacts.
+These run `expo run:android` and `expo run:ios` (build, install, and start Metro). If **`android/`** is missing, generate it with [`npx expo prebuild`](https://docs.expo.dev/workflow/prebuild/).
+
+### Android Studio: build an APK locally
+
+Use this when you want a **standalone `.apk`** without using EAS (e.g. sideloading to a device for testing).
+
+1. **Prerequisites**  
+   - [Android Studio](https://developer.android.com/studio) installed (SDK, platform tools).  
+   - Project has an **`android/`** directory. If you removed it, run:  
+     `npx expo prebuild --platform android`
+
+2. **Open the Android project**  
+   - Launch Android Studio → **Open** → choose the **`android`** folder inside this repo (`…/Camera/android`), not only the repo root.  
+   - Wait for **Gradle sync** to finish; resolve any SDK/license prompts.
+
+3. **Debug APK (unsigned / debug-signed, fast for testing)**  
+   - Menu: **Build → Build Bundle(s) / APK(s) → Build APK(s)**.  
+   - Or from a terminal in **`android/`**:  
+     - Windows: `.\gradlew.bat assembleDebug`  
+     - macOS/Linux: `./gradlew assembleDebug`  
+   - Output: **`android/app/build/outputs/apk/debug/app-debug.apk`**  
+   - Install on a device with USB debugging or `adb install -r` that path.
+
+4. **Release APK (for distribution)**  
+   - Configure **signing** (keystore) in Android Studio: **Build → Generate Signed App Bundle or APK**, or set up `signingConfigs` in `android/app/build.gradle` and run:  
+     `.\gradlew.bat assembleRelease` (Windows) / `./gradlew assembleRelease`  
+   - Output (when signing is configured): under **`android/app/build/outputs/apk/release/`** (exact name depends on your Gradle config).  
+   - See [React Native: signed APK](https://reactnative.dev/docs/signed-apk-android) and [Expo: local app production](https://docs.expo.dev/guides/local-app-production/) for details.
+
+5. **Notes**  
+   - **Versioning**: `versionCode` / application id live under `android/`; align with `app.json` / Play Store expectations when you change native builds.  
+   - **EAS vs local**: EAS Build is still recommended for **consistent, CI-friendly** production artifacts; Android Studio is ideal for **fast local APKs** and debugging native issues.
+
+### iOS (Xcode)
+
+Open **`ios/*.xcworkspace`** in Xcode if the `ios` folder exists; build and run from there. Generate `ios/` with `npx expo prebuild --platform ios` if needed.
 
 ## Project layout
 

@@ -8,9 +8,7 @@
     "scheme": "camera",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/d915c1be-d916-4d14-a25d-41aabac26653",
       "checkAutomatically": "ON_LOAD",
@@ -61,7 +59,9 @@
         }
       ],
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/withAndroidManifestPackage",
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true,
