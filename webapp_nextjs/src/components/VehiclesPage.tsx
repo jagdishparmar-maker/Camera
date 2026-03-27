@@ -1,6 +1,8 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/auth-context";
+import { isPocketBaseAbortError } from "@/lib/pocketbase-errors";
 import { pb } from "@/lib/pocketbase";
 import type { Vehicle, VehicleStatus } from "@/lib/vehicle-types";
 import { computeStatus, getDockDuration, STATUS_COLORS, STATUS_LABELS } from "@/lib/vehicle-types";
@@ -59,6 +61,7 @@ function TruckListIcon({ className }: { className?: string }) {
 }
 
 export function VehiclesPage() {
+  const { user, logout } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,9 +78,12 @@ export function VehiclesPage() {
       const list = await pb.collection(COLLECTION).getFullList<Vehicle>({
         sort: "-created",
         expand: "Checked_In_By,Checked_Out_By",
+        // Same as realtime: prevents duplicate requests from cancelling each other (Strict Mode / fast reload).
+        requestKey: null,
       });
       setVehicles(Array.isArray(list) ? list : []);
     } catch (err) {
+      if (isPocketBaseAbortError(err)) return;
       setError(err instanceof Error ? err.message : "Failed to load vehicles");
       setVehicles([]);
     } finally {
@@ -281,7 +287,20 @@ export function VehiclesPage() {
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto flex items-center gap-2">
+            <span
+              className="hidden max-w-[140px] truncate text-[10px] text-[var(--text-muted)] sm:inline"
+              title={user?.email ?? undefined}
+            >
+              {user?.email ?? ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="h-7 rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 text-[10px] font-medium text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+            >
+              Sign out
+            </button>
             <button
               onClick={() => setShowStats((s) => !s)}
               className={`h-7 rounded-md border px-2.5 text-xs font-medium transition-colors ${

@@ -21,14 +21,20 @@ class VehicleRepository @Inject constructor(private val api: PocketBaseApi) {
     suspend fun getVehicleById(id: String): Vehicle =
         api.getOne(COLLECTION, id, expand = EXPAND)
 
-    suspend fun checkOut(id: String, checkOutDateIso: String, remarks: String?): Vehicle =
+    suspend fun checkOut(
+        id: String,
+        checkOutDateIso: String,
+        remarks: String?,
+        checkedOutByUserId: String?,
+    ): Vehicle =
         api.update(
             COLLECTION, id,
             buildJsonObject {
                 put("status", "CheckedOut")
                 put("Check_Out_Date", checkOutDateIso)
                 remarks?.takeIf { it.isNotBlank() }?.let { put("Remarks", it) }
-            }
+                checkedOutByUserId?.takeIf { it.isNotBlank() }?.let { put("Checked_Out_By", it) }
+            },
         )
 
     suspend fun assignDock(
@@ -79,10 +85,7 @@ class VehicleRepository @Inject constructor(private val api: PocketBaseApi) {
             put("Check_In_Date", checkInDateIso)
             driverName?.takeIf { it.isNotBlank() }?.let { put("Driver_Name", it) }
             contactNo?.takeIf { it.isNotBlank() }?.let { put("Contact_No", it) }
-            checkedInById?.let {
-                put("Checked_In_By", it)
-                put("Checked_Out_By", it)
-            }
+            checkedInById?.takeIf { it.isNotBlank() }?.let { put("Checked_In_By", it) }
         },
         fileField = "image",
         fileUri   = imageLocalPath,

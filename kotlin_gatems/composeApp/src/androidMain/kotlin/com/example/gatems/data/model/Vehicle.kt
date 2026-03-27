@@ -57,3 +57,10 @@ data class UserRecord(
         ?: email?.takeIf { it.isNotBlank() }
         ?: "—"
 }
+
+/** Prefer expanded PocketBase user; avoids showing raw relation id when expand is missing. */
+fun Vehicle.auditCheckedInByLabel(): String =
+    expand?.checkedInBy?.displayName()?.takeIf { it.isNotBlank() && it != "—" } ?: "—"
+
+fun Vehicle.auditCheckedOutByLabel(): String =
+    expand?.checkedOutBy?.displayName()?.takeIf { it.isNotBlank() && it != "—" } ?: "—"

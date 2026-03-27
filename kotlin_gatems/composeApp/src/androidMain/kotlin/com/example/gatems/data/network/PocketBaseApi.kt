@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.call.body
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
@@ -17,6 +19,7 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -48,6 +51,16 @@ data class AuthRecord(
     val name: String = "",
 )
 
+/** PocketBase error JSON for failed auth and other API errors (not 2xx). */
+@Serializable
+private data class PocketBaseErrorBody(
+    val message: String = "",
+    val code: Int = 0,
+)
+
+/** Wrong credentials or validation; [message] is suitable to show in the UI. */
+class PocketBaseAuthException(message: String) : Exception(message)
+
 // ── API client ────────────────────────────────────────────────────────────────
 
 @Singleton
@@ -58,19 +71,40 @@ class PocketBaseApi @Inject constructor(
     @PublishedApi internal val base  get() = client.baseUrl
     @PublishedApi internal val http  get() = client.httpClient
 
+    private val errorJson = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
+
     // ── Auth ──────────────────────────────────────────────────────────────────
 
     suspend fun authWithPassword(
         collection: String,
         email: String,
         password: String,
-    ): AuthResponse = http.post("$base/api/collections/$collection/auth-with-password") {
-        contentType(ContentType.Application.Json)
-        setBody(buildJsonObject {
-            put("identity", email)
-            put("password", password)
-        })
-    }.body()
+    ): AuthResponse {
+        val response: HttpResponse = http.post("$base/api/collections/$collection/auth-with-password") {
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("identity", email)
+                put("password", password)
+            })
+        }
+        if (response.status.value in 200..299) {
+            return response.body<AuthResponse>()
+        }
+        throw PocketBaseAuthException(parsePocketBaseErrorMessage(response))
+    }
+
+    private suspend fun parsePocketBaseErrorMessage(response: HttpResponse): String {
+        val text = response.bodyAsText()
+        return try {
+            val err = errorJson.decodeFromString<PocketBaseErrorBody>(text)
+            err.message.takeIf { it.isNotBlank() } ?: "Request failed (${response.status.value})"
+        } catch (_: Exception) {
+            text.takeIf { it.isNotBlank() } ?: "Request failed (${response.status.value})"
+        }
+    }
 
     // ── Read ──────────────────────────────────────────────────────────────────
 

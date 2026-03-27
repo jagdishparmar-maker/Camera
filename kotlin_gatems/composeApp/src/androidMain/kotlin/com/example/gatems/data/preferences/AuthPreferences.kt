@@ -30,6 +30,7 @@ class AuthPreferences @Inject constructor(
     val pbUrlFlow: Flow<String> = context.dataStore.data.map {
         it[KEY_PB_URL] ?: BuildConfig.POCKETBASE_URL
     }
+    val userEmailFlow: Flow<String> = context.dataStore.data.map { it[KEY_USER_EMAIL] ?: "" }
 
     suspend fun saveAuth(token: String, userId: String, name: String, email: String) {
         context.dataStore.edit { prefs ->

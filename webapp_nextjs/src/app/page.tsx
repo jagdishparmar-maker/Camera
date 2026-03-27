@@ -1,5 +1,10 @@
+import { RequireAuth } from "@/components/RequireAuth";
 import { VehiclesPage } from "@/components/VehiclesPage";
 
 export default function Home() {
-  return <VehiclesPage />;
+  return (
+    <RequireAuth>
+      <VehiclesPage />
+    </RequireAuth>
+  );
 }

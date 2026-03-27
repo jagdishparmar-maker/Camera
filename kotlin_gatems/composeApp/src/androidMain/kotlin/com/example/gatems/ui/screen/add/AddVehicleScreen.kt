@@ -1,5 +1,6 @@
 package com.example.gatems.ui.screen.add
 
+import android.Manifest
 import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -15,7 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,9 +26,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -40,6 +45,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -59,9 +65,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -76,6 +84,8 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.gatems.data.model.Customer
 import com.example.gatems.util.formatDateTimeLong
+import com.example.gatems.util.hasCameraPermission
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -91,6 +101,7 @@ fun AddVehicleScreen(navController: NavController) {
     val customers by viewModel.customers.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(state) {
         when (val s = state) {
@@ -106,6 +117,22 @@ fun AddVehicleScreen(navController: NavController) {
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     val capturePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) viewModel.imageUri = pendingCameraUri
+    }
+    val requestCameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val uri = pendingCameraUri
+        when {
+            granted && uri != null -> capturePhoto.launch(uri)
+            !granted -> {
+                pendingCameraUri = null
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        "Camera permission is required to take a photo. You can use “Select from Gallery” instead.",
+                    )
+                }
+            }
+        }
     }
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) viewModel.imageUri = uri
@@ -136,12 +163,26 @@ fun AddVehicleScreen(navController: NavController) {
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            val isLoading = state is AddVehicleState.Loading
+            val canAct = !isLoading && isStepValid(viewModel)
+            AddVehicleFloatingActions(
+                currentStep = viewModel.currentStep,
+                isLoading = isLoading,
+                canPrimary = canAct,
+                onBack = {
+                    if (viewModel.currentStep > 0) viewModel.prevStep() else navController.popBackStack()
+                },
+                onPrimary = {
+                    if (viewModel.currentStep == 0) viewModel.nextStep() else viewModel.submit()
+                },
+            )
+        },
     ) { innerPadding ->
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .imePadding()
+                .padding(innerPadding),
         ) {
             LinearProgressIndicator(
                 progress = { (viewModel.currentStep + 1) / 2f },
@@ -150,7 +191,13 @@ fun AddVehicleScreen(navController: NavController) {
             )
 
             Column(
-                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    // Space for FABs; avoid extra bottom gap with IME (window already resizes via adjustResize).
+                    .padding(bottom = 80.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 when (viewModel.currentStep) {
@@ -159,7 +206,11 @@ fun AddVehicleScreen(navController: NavController) {
                         onCapture = {
                             val uri = createTempImageUri(context)
                             pendingCameraUri = uri
-                            capturePhoto.launch(uri)
+                            if (context.hasCameraPermission()) {
+                                capturePhoto.launch(uri)
+                            } else {
+                                requestCameraPermission.launch(Manifest.permission.CAMERA)
+                            }
                         },
                         onPickGallery = { pickImage.launch("image/*") },
                     )
@@ -169,30 +220,72 @@ fun AddVehicleScreen(navController: NavController) {
                     )
                 }
             }
+        }
+    }
+}
 
-            val isLoading = state is AddVehicleState.Loading
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+@Composable
+private fun AddVehicleFloatingActions(
+    currentStep: Int,
+    isLoading: Boolean,
+    canPrimary: Boolean,
+    onBack: () -> Unit,
+    onPrimary: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (currentStep > 0) {
+            SmallFloatingActionButton(
+                onClick = onBack,
+                modifier = Modifier.size(52.dp),
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 3.dp,
+                    pressedElevation = 6.dp,
+                ),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ) {
-                if (viewModel.currentStep > 0) {
-                    Button(onClick = viewModel::prevStep, modifier = Modifier.weight(1f)) { Text("Back") }
-                }
-                Button(
-                    onClick = {
-                        if (viewModel.currentStep == 0) viewModel.nextStep() else viewModel.submit()
-                    },
-                    enabled = !isLoading && isStepValid(viewModel),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                    } else {
-                        Text(if (viewModel.currentStep == 0) "Next" else "Save Vehicle")
-                    }
-                }
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
         }
+        val primaryReady = canPrimary && !isLoading
+        ExtendedFloatingActionButton(
+            text = {
+                Text(
+                    if (currentStep == 0) "Next" else "Save vehicle",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
+            icon = {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                } else if (currentStep == 0) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                } else {
+                    Icon(Icons.Filled.Check, contentDescription = null)
+                }
+            },
+            onClick = {
+                if (primaryReady) onPrimary()
+            },
+            expanded = true,
+            modifier = Modifier.alpha(if (primaryReady || isLoading) 1f else 0.5f),
+            shape = RoundedCornerShape(16.dp),
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 4.dp,
+                pressedElevation = 8.dp,
+            ),
+        )
     }
 }
 

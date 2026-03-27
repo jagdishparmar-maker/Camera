@@ -6,8 +6,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.gatems.ui.theme.GateMsTheme
 import com.example.gatems.ui.navigation.GateMsNavGraph
+import com.example.gatems.ui.viewmodel.AuthViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -21,7 +23,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             GateMsTheme {
-                GateMsNavGraph()
+                val authViewModel: AuthViewModel = hiltViewModel()
+                GateMsNavGraph(authViewModel = authViewModel)
             }
         }
     }

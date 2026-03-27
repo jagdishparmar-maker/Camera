@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,7 +37,11 @@ import com.example.gatems.BuildConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    userEmail: String,
+    pocketBaseUrl: String,
+    onLogout: () -> Unit,
+) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -87,11 +92,27 @@ fun SettingsScreen() {
                 }
             }
 
+            // ── Account ────────────────────────────────────────────────────────
+            SettingsSection("Account") {
+                SettingsRow(
+                    label = "Signed in as",
+                    value = userEmail.ifBlank { "—" },
+                )
+                Button(
+                    onClick = onLogout,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                ) {
+                    Text("Sign out")
+                }
+            }
+
             // ── Server config ──────────────────────────────────────────────────
             SettingsSection("Server") {
                 SettingsRow(
                     label = "PocketBase URL",
-                    value = BuildConfig.POCKETBASE_URL,
+                    value = pocketBaseUrl.ifBlank { BuildConfig.POCKETBASE_URL },
                     mono  = true,
                 )
             }

@@ -14,6 +14,10 @@ export function subscribeVehicles<T = Record<string, unknown>>(
     (e) => {
       callback(e.action as "create" | "update" | "delete", e.record);
     },
-    { expand: "Checked_In_By,Checked_Out_By" }
+    {
+      expand: "Checked_In_By,Checked_Out_By",
+      // Avoid auto-cancellation when React Strict Mode mounts twice (dev) or overlapping subscribes.
+      requestKey: null,
+    }
   );
 }

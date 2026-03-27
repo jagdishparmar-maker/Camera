@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isPocketBaseAbortError } from "@/lib/pocketbase-errors";
 import type { Vehicle } from "@/lib/vehicle-types";
 import { subscribeVehicles } from "@/lib/realtime";
 
@@ -56,8 +57,10 @@ export function useVehicleRealtime(
         unsub = fn;
         setStatus("live");
       })
-      .catch(() => {
-        if (!cancelled) setStatus("offline");
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        if (isPocketBaseAbortError(err)) return;
+        setStatus("offline");
       });
 
     return () => {

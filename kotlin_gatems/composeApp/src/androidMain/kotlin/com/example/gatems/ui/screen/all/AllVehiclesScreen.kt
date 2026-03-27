@@ -60,6 +60,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.gatems.data.model.Vehicle
+import com.example.gatems.data.model.auditCheckedInByLabel
 import com.example.gatems.ui.navigation.Routes
 import com.example.gatems.util.formatDateTimeShort
 
@@ -250,6 +251,14 @@ private fun VehicleRow(vehicle: Vehicle, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                val inBy = vehicle.auditCheckedInByLabel()
+                if (inBy != "—") {
+                    Text(
+                        text  = "In by $inBy",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (vehicle.assignedDock != null) {
                     Text(
                         text  = "Dock ${vehicle.assignedDock}",

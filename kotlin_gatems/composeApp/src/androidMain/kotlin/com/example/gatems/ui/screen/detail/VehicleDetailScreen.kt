@@ -80,6 +80,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.gatems.BuildConfig
 import com.example.gatems.data.model.Vehicle
+import com.example.gatems.data.model.auditCheckedInByLabel
+import com.example.gatems.data.model.auditCheckedOutByLabel
 import com.example.gatems.ui.navigation.Routes
 import com.example.gatems.util.durationBetween
 import com.example.gatems.util.formatDateTimeLong
@@ -435,9 +437,9 @@ private fun DetailContent(
             DetailSection(title = "Notes & audit") {
                 InfoRow("Remarks", vehicle.remarks, multiline = true)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                InfoRow("Checked in by", vehicle.expand?.checkedInBy?.displayName() ?: vehicle.checkedInBy)
+                InfoRow("Checked in by", vehicle.auditCheckedInByLabel())
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                InfoRow("Checked out by", vehicle.expand?.checkedOutBy?.displayName() ?: vehicle.checkedOutBy)
+                InfoRow("Checked out by", vehicle.auditCheckedOutByLabel())
             }
         }
 

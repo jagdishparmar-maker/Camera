@@ -94,9 +94,10 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 vehicleRepo.checkOut(
-                    id               = vehicleId,
-                    checkOutDateIso  = date.toIso(),
-                    remarks          = remarks.trim().takeIf { it.isNotBlank() },
+                    id                   = vehicleId,
+                    checkOutDateIso      = date.toIso(),
+                    remarks              = remarks.trim().takeIf { it.isNotBlank() },
+                    checkedOutByUserId   = authPrefs.getUserInfo().id.takeIf { it.isNotBlank() },
                 )
                 _snackbar.value = SnackbarEvent("Vehicle checked out successfully.")
                 loadVehicles(silent = true)

@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gatems.data.model.Customer
+import com.example.gatems.data.preferences.AuthPreferences
 import com.example.gatems.data.repository.CustomerRepository
 import com.example.gatems.data.repository.VehicleRepository
 import com.example.gatems.util.toIso
@@ -30,6 +31,7 @@ sealed class AddVehicleState {
 class AddVehicleViewModel @Inject constructor(
     private val vehicleRepo: VehicleRepository,
     private val customerRepo: CustomerRepository,
+    private val authPrefs: AuthPreferences,
 ) : ViewModel() {
 
     // ── Wizard step (0 = Photo, 1 = Details) ──────────────────────────────────
@@ -87,6 +89,7 @@ class AddVehicleViewModel @Inject constructor(
     fun submit() = viewModelScope.launch {
         _state.value = AddVehicleState.Loading
         runCatching {
+            val checkedInById = authPrefs.getUserInfo().id.takeIf { it.isNotBlank() }
             vehicleRepo.createVehicle(
                 vehicleNo      = vehicleNo.trim(),
                 type           = type,
@@ -95,7 +98,7 @@ class AddVehicleViewModel @Inject constructor(
                 driverName     = driverName.takeIf { it.isNotBlank() },
                 contactNo      = contactNo.replace(" ", "").takeIf { it.isNotBlank() },
                 checkInDateIso = checkInDate.toIso(),
-                checkedInById  = null,
+                checkedInById  = checkedInById,
                 status         = "CheckedIn",
                 imageLocalPath = checkNotNull(imageUri).toString(),
                 mimeType       = "image/jpeg",

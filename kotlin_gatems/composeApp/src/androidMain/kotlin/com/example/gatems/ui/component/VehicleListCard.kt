@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.gatems.data.model.Vehicle
 import com.example.gatems.data.model.VehicleStatus
+import com.example.gatems.data.model.auditCheckedInByLabel
 import com.example.gatems.util.formatDateTimeShort
 
 @Composable
@@ -180,6 +181,18 @@ fun VehicleListCard(
                             text     = "In: ${formatDateTimeShort(vehicle.checkInDate)}",
                             style    = MaterialTheme.typography.labelSmall,
                             color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    val checkedInBy = vehicle.auditCheckedInByLabel()
+                    if (checkedInBy != "—") {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text     = "Checked in by $checkedInBy",
+                            style    = MaterialTheme.typography.labelSmall,
+                            color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
 
