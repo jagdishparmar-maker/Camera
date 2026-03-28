@@ -56,6 +56,24 @@ export type Vehicle = {
   };
 };
 
+/** Display name for audit relation (expand); falls back to email, else em dash. */
+function userExpandLabel(u: { name?: string; email?: string } | undefined): string {
+  if (!u) return "—";
+  const name = u.name?.trim();
+  if (name) return name;
+  const email = u.email?.trim();
+  if (email) return email;
+  return "—";
+}
+
+export function auditCheckedInByLabel(v: Vehicle): string {
+  return userExpandLabel(v.expand?.Checked_In_By);
+}
+
+export function auditCheckedOutByLabel(v: Vehicle): string {
+  return userExpandLabel(v.expand?.Checked_Out_By);
+}
+
 /** Vehicle is on site if not checked out (no Check_Out_Date) */
 export function isOnSite(vehicle: { Check_Out_Date?: string }): boolean {
   return !vehicle.Check_Out_Date;

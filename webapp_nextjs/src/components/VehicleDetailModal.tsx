@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { Vehicle, VehicleStatus } from "@/lib/vehicle-types";
 import {
+  auditCheckedInByLabel,
+  auditCheckedOutByLabel,
   computeStatus,
   formatDateTime,
   getDockDuration,
@@ -9,6 +12,7 @@ import {
   STATUS_COLORS,
   STATUS_LABELS,
 } from "@/lib/vehicle-types";
+import { VehicleImageLightbox } from "./VehicleImageLightbox";
 
 function getFileUrl(vehicle: Vehicle, filename: string): string {
   const base = process.env.NEXT_PUBLIC_POCKETBASE_URL ?? "http://127.0.0.1:8090";
@@ -19,7 +23,7 @@ function getFileUrl(vehicle: Vehicle, filename: string): string {
 function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div className="flex items-start justify-between gap-3 py-2 border-b border-[var(--border)] last:border-0">
-      <span className="flex-shrink-0 text-xs font-medium text-[var(--text-muted)] w-24">{label}</span>
+      <span className="flex-shrink-0 text-xs font-medium text-[var(--text-muted)] w-32">{label}</span>
       <span className="text-right text-sm font-mono text-[var(--text)] break-all">
         {value != null && value !== "" ? String(value) : <span className="text-[var(--text-xmuted)]">—</span>}
       </span>
@@ -33,6 +37,12 @@ type VehicleDetailModalProps = {
 };
 
 export function VehicleDetailModal({ vehicle, onClose }: VehicleDetailModalProps) {
+  const [photoZoomOpen, setPhotoZoomOpen] = useState(false);
+
+  useEffect(() => {
+    setPhotoZoomOpen(false);
+  }, [vehicle?.id]);
+
   if (!vehicle) return null;
 
   const status =
@@ -59,11 +69,21 @@ export function VehicleDetailModal({ vehicle, onClose }: VehicleDetailModalProps
         {/* ── Left: Photo ── */}
         <div className="relative flex w-2/5 flex-shrink-0 flex-col overflow-hidden bg-[var(--bg-muted)]">
           {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={vehicle.vehicleno}
-              className="h-full w-full object-cover"
-            />
+            <button
+              type="button"
+              onClick={() => setPhotoZoomOpen(true)}
+              className="group relative h-full min-h-[200px] w-full cursor-zoom-in border-0 bg-transparent p-0 text-left"
+              aria-label="View vehicle photo full screen with zoom"
+            >
+              <img
+                src={imageUrl}
+                alt={vehicle.vehicleno}
+                className="h-full w-full object-cover"
+              />
+              <span className="pointer-events-none absolute right-2 top-2 rounded-md bg-black/45 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                Zoom
+              </span>
+            </button>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-[var(--text-xmuted)]">
               <span className="text-6xl">🚛</span>
@@ -108,7 +128,9 @@ export function VehicleDetailModal({ vehicle, onClose }: VehicleDetailModalProps
             <DetailRow label="Driver" value={vehicle.Driver_Name} />
             <DetailRow label="Contact" value={vehicle.Contact_No} />
             <DetailRow label="Check In" value={vehicle.Check_In_Date ? formatDateTime(vehicle.Check_In_Date) : null} />
+            <DetailRow label="Checked in by" value={auditCheckedInByLabel(vehicle)} />
             <DetailRow label="Check Out" value={vehicle.Check_Out_Date ? formatDateTime(vehicle.Check_Out_Date) : null} />
+            <DetailRow label="Checked out by" value={auditCheckedOutByLabel(vehicle)} />
             <DetailRow
               label="Yard Duration"
               value={getYardDuration(vehicle)}
@@ -124,6 +146,15 @@ export function VehicleDetailModal({ vehicle, onClose }: VehicleDetailModalProps
           </div>
         </div>
       </div>
+
+      {imageUrl ? (
+        <VehicleImageLightbox
+          src={imageUrl}
+          alt={vehicle.vehicleno}
+          open={photoZoomOpen}
+          onClose={() => setPhotoZoomOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
