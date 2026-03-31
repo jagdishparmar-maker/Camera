@@ -41,7 +41,8 @@
   --color-background: var(--bg);
   --color-foreground: var(--text);
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), "Consolas", "Monaco", monospace;
+  /* System stack only — UI uses Geist Sans for readability; avoid loading a second webfont for mono */
+  --font-mono: ui-monospace, "Cascadia Code", "Consolas", "Monaco", monospace;
 }
 
 * {

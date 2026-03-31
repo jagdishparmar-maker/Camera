@@ -280,7 +280,7 @@ export function VehiclesPage() {
                 }`}
               >
                 {tab.label}
-                <span className={`ml-1 font-mono ${filter === tab.id ? "text-blue-100" : "text-[var(--text-xmuted)]"}`}>
+                <span className={`ml-1 font-sans ${filter === tab.id ? "text-blue-100" : "text-[var(--text-xmuted)]"}`}>
                   {tab.count}
                 </span>
               </button>
@@ -464,11 +464,11 @@ const VehicleRow = memo(function VehicleRow({
           >
             <TruckListIcon className="h-3.5 w-3.5" />
           </span>
-          <span className="font-mono text-sm font-semibold text-[var(--text)] truncate">
+          <span className="font-sans text-sm font-semibold text-[var(--text)] truncate">
             {vehicle.vehicleno}
           </span>
           {vehicle.Assigned_Dock != null && (
-            <span className="ml-1 flex-shrink-0 rounded bg-[var(--s-dockedin)]/10 px-1 py-0.5 font-mono text-[9px] font-bold text-[var(--s-dockedin)]">
+            <span className="ml-1 flex-shrink-0 rounded bg-[var(--s-dockedin)]/10 px-1 py-0.5 font-sans text-[9px] font-bold text-[var(--s-dockedin)]">
               D{vehicle.Assigned_Dock}
             </span>
           )}
@@ -491,10 +491,10 @@ const VehicleRow = memo(function VehicleRow({
       <div className="text-right">
         {vehicle.Check_In_Date ? (
           <>
-            <span className="block font-mono text-xs font-semibold tabular-nums text-[var(--text)]">
+            <span className="block font-sans text-xs font-semibold tabular-nums text-[var(--text)]">
               {new Date(vehicle.Check_In_Date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
             </span>
-            <span className="block font-mono text-xs tabular-nums text-[var(--text-muted)]">
+            <span className="block font-sans text-xs tabular-nums text-[var(--text-muted)]">
               {new Date(vehicle.Check_In_Date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}
             </span>
           </>
@@ -526,13 +526,13 @@ const DockVehicleRow = memo(function DockVehicleRow({
         isCheckedInOver24h(v) ? "bg-amber-50 hover:bg-amber-100" : "hover:bg-[var(--bg-subtle)]"
       }`}
     >
-      <span className="font-mono text-sm font-bold text-[var(--text-muted)]">
+      <span className="font-sans text-sm font-bold text-[var(--text-muted)]">
         {stackIndex === 0 ? dockNum : ""}
       </span>
-      <span className="min-w-0 truncate pr-1 font-mono text-sm font-semibold text-[var(--text)]">{v.vehicleno}</span>
+      <span className="min-w-0 truncate pr-1 font-sans text-sm font-semibold text-[var(--text)]">{v.vehicleno}</span>
       <span className="min-w-0 truncate pr-1 text-sm text-[var(--text-muted)]">{v.Customer || "—"}</span>
       <span
-        className="min-w-0 text-center font-mono text-sm tabular-nums text-[var(--text)]"
+        className="min-w-0 text-center font-sans text-sm tabular-nums text-[var(--text)]"
         title={getDockDuration(v) ?? undefined}
       >
         {getDockDuration(v) ?? "—"}
@@ -611,7 +611,7 @@ function VehicleColumn({
             {title}
           </h2>
         </div>
-        <span className="rounded-full border px-2 py-0.5 font-mono text-xs font-bold tabular-nums" style={{ borderColor: headerBorder, color: accentColor }}>
+        <span className="rounded-full border px-2 py-0.5 font-sans text-xs font-bold tabular-nums" style={{ borderColor: headerBorder, color: accentColor }}>
           {count}
         </span>
       </div>
@@ -648,7 +648,7 @@ function VehicleColumn({
                     <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: meta.text }}>
                       {meta.label}
                     </span>
-                    <span className="ml-auto font-mono text-[10px] font-bold tabular-nums" style={{ color: meta.text }}>
+                    <span className="ml-auto font-sans text-[10px] font-bold tabular-nums" style={{ color: meta.text }}>
                       {group.length}
                     </span>
                   </div>
@@ -695,7 +695,7 @@ function DockColumn({
           <TruckListIcon className="h-4 w-4 flex-shrink-0 opacity-80" />
           <h2 className="text-base font-semibold text-[var(--text-muted)]">Dock Status</h2>
         </div>
-        <span className="rounded-full border border-[var(--border)] px-2.5 py-1 font-mono text-sm font-bold tabular-nums text-[var(--text-muted)]">
+        <span className="rounded-full border border-[var(--border)] px-2.5 py-1 font-sans text-sm font-bold tabular-nums text-[var(--text-muted)]">
           {occupied}/{docks.length}
         </span>
       </div>
@@ -725,7 +725,7 @@ function DockColumn({
                 <div key={dockNum}>
                   {isEmpty ? (
                     <div className="grid grid-cols-[44px_1fr_1fr_80px_44px] items-center px-3 py-2.5">
-                      <span className="font-mono text-sm font-bold text-[var(--text-xmuted)]">{dockNum}</span>
+                      <span className="font-sans text-sm font-bold text-[var(--text-xmuted)]">{dockNum}</span>
                       <span className="col-span-4 text-sm text-[var(--text-xmuted)]">—</span>
                     </div>
                   ) : (

@@ -24,7 +24,7 @@ function Stat({
         <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
       )}
       <span className="text-xs text-[var(--text-muted)]">{label}</span>
-      <span className="font-mono text-sm font-bold text-[var(--text)] tabular-nums">{value}</span>
+      <span className="font-sans text-sm font-bold text-[var(--text)] tabular-nums">{value}</span>
     </div>
   );
 }
