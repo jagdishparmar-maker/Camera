@@ -22,12 +22,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -82,6 +82,7 @@ import com.example.gatems.BuildConfig
 import com.example.gatems.data.model.Vehicle
 import com.example.gatems.data.model.auditCheckedInByLabel
 import com.example.gatems.data.model.auditCheckedOutByLabel
+import com.example.gatems.ui.component.ErrorState
 import com.example.gatems.ui.navigation.Routes
 import com.example.gatems.util.durationBetween
 import com.example.gatems.util.formatDateTimeLong
@@ -132,19 +133,19 @@ fun VehicleDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
                     val vehicle = (uiState as? VehicleDetailViewModel.UiState.Success)?.vehicle ?: return@TopAppBar
                     IconButton(onClick = { navController.navigate(Routes.editVehicle(vehicleId)) }) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                        Icon(Icons.Outlined.Edit, contentDescription = "Edit")
                     }
                     IconButton(onClick = { scope.launch { shareVehicleWithPhoto(context, vehicle) } }) {
-                        Icon(Icons.Filled.Share, contentDescription = "Share")
+                        Icon(Icons.Outlined.Share, contentDescription = "Share")
                     }
                     IconButton(onClick = { viewModel.showDeleteDialog = true }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                     }
                 },
             )
@@ -158,15 +159,11 @@ fun VehicleDetailScreen(
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
-            is VehicleDetailViewModel.UiState.Error -> {
-                Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(s.message, color = MaterialTheme.colorScheme.error)
-                        Spacer(Modifier.height(16.dp))
-                        Button(onClick = viewModel::load) { Text("Retry") }
-                    }
-                }
-            }
+            is VehicleDetailViewModel.UiState.Error -> ErrorState(
+                message  = s.message,
+                onRetry  = viewModel::load,
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+            )
             is VehicleDetailViewModel.UiState.Success -> {
                 DetailContent(
                     vehicle = s.vehicle,
@@ -315,7 +312,7 @@ private fun DetailContent(
                 } else {
                     Box(Modifier.fillMaxSize().background(Color(0xFF2C2C2E)), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Filled.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp))
+                            Icon(Icons.Outlined.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp))
                             Spacer(Modifier.height(8.dp))
                             Text(vehicle.vehicleno, color = Color.White, style = MaterialTheme.typography.titleMedium)
                         }
@@ -412,7 +409,7 @@ private fun DetailContent(
                             Text(contact, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.width(8.dp))
                             OutlinedButton(onClick = { onCallContact(contact) }) {
-                                Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Outlined.Call, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
                                 Text("Call")
                             }
@@ -580,7 +577,7 @@ private fun FullScreenZoomableImage(
                 contentScale = ContentScale.Fit,
             )
             IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
-                Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+                Icon(Icons.Outlined.Close, contentDescription = "Close", tint = Color.White)
             }
             AssistChip(
                 onClick = {

@@ -31,6 +31,8 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             // Material Icons (Home, Settings, etc. for bottom nav + screen actions)
             implementation(libs.androidx.compose.material.icons.core)
+            // Full outlined icon set for a smoother, softer look across the app
+            implementation(libs.androidx.compose.material.icons.extended)
             // Hilt
             implementation(libs.hilt.android)
             implementation(libs.hilt.navigation.compose)
@@ -50,6 +52,9 @@ kotlin {
             // OkHttp + SSE for PocketBase realtime
             implementation(libs.okhttp)
             implementation(libs.okhttp.sse)
+            // Paging 3 — cursor-based paging for large vehicle lists
+            implementation(libs.androidx.paging.runtime)
+            implementation(libs.androidx.paging.compose)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)

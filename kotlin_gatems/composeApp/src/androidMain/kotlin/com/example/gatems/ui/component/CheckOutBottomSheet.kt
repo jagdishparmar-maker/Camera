@@ -14,9 +14,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -119,7 +119,7 @@ fun CheckOutBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector        = Icons.Filled.DateRange,
+                        imageVector        = Icons.Outlined.DateRange,
                         contentDescription = null,
                         tint               = MaterialTheme.colorScheme.primary,
                         modifier           = Modifier.size(20.dp),
@@ -133,7 +133,7 @@ fun CheckOutBottomSheet(
                             .padding(horizontal = 12.dp),
                     )
                     Icon(
-                        imageVector        = Icons.Filled.ArrowDropDown,
+                        imageVector        = Icons.Outlined.ArrowDropDown,
                         contentDescription = null,
                         tint               = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -171,7 +171,7 @@ fun CheckOutBottomSheet(
                     shape   = RoundedCornerShape(12.dp),
                 ) {
                     Icon(
-                        imageVector        = Icons.Filled.ExitToApp,
+                        imageVector        = Icons.AutoMirrored.Outlined.ExitToApp,
                         contentDescription = null,
                         modifier           = Modifier.size(18.dp),
                     )

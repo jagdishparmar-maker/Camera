@@ -21,11 +21,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import com.example.gatems.ui.component.ErrorState
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -110,13 +111,11 @@ fun DockScreen(navController: NavController) {
                 CircularProgressIndicator()
             }
 
-            error != null -> Box(Modifier.fillMaxSize().padding(innerPadding), Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(error ?: "Failed to load", color = MaterialTheme.colorScheme.error)
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = viewModel::load) { Text("Retry") }
-                }
-            }
+            error != null -> ErrorState(
+                message  = error ?: "Failed to load",
+                onRetry  = viewModel::load,
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+            )
 
             else -> PullToRefreshBox(
                 isRefreshing = isRefreshing,
@@ -231,7 +230,7 @@ private fun DockGridCard(
                     )
                 }
                 if (occupied) {
-                    Icon(Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 }
             }
 
@@ -335,7 +334,7 @@ private fun AssignDockSheet(
 
             Spacer(Modifier.height(14.dp))
             Button(onClick = onConfirm, enabled = selectedVehicle != null, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Assign to Dock $dockNumber")
             }

@@ -24,6 +24,7 @@ kotlinx-serialization = "1.7.3"
 datastore = "1.1.1"
 navigation-compose = "2.8.7"
 coil = "2.7.0"
+paging = "3.3.5"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -65,6 +66,10 @@ okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-sse = { module = "com.squareup.okhttp3:okhttp-sse", version.ref = "okhttp" }
 # Material Icons (Jetpack Compose Android — aligned with JetBrains Compose 1.10.0)
 androidx-compose-material-icons-core = { module = "androidx.compose.material:material-icons-core", version.ref = "compose-android" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "compose-android" }
+# Paging 3 (large lists: cursor-paged server queries for All Vehicles)
+androidx-paging-runtime = { module = "androidx.paging:paging-runtime-ktx", version.ref = "paging" }
+androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

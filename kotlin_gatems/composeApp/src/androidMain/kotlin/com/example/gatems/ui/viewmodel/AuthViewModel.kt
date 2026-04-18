@@ -46,8 +46,19 @@ class AuthViewModel @Inject constructor(
     val pbUrl: StateFlow<String> = authPrefs.pbUrlFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
+    /** Last user's "Stay signed in" choice — drives the initial state of the checkbox. */
+    val staySignedIn: StateFlow<Boolean> = authPrefs.staySignedInFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     init {
         viewModelScope.launch {
+            // If the user opted out of staying signed in, discard any lingering token
+            // on cold start so they land on the login screen regardless of validity.
+            val stay = authPrefs.getStaySignedIn()
+            if (!stay && authPrefs.getToken().isNotBlank()) {
+                authPrefs.clearToken()
+                pbClient.clearToken()
+            }
             var first = true
             authPrefs.tokenFlow.collect { token ->
                 syncClientFromPrefs()
@@ -66,7 +77,7 @@ class AuthViewModel @Inject constructor(
         pbClient.init(url, token)
     }
 
-    suspend fun login(email: String, password: String): Result<Unit> = runCatching {
+    suspend fun login(email: String, password: String, stay: Boolean = true): Result<Unit> = runCatching {
         val resp = api.authWithPassword(USERS_COLLECTION, email.trim(), password)
         authPrefs.saveAuth(
             token = resp.token,
@@ -74,6 +85,7 @@ class AuthViewModel @Inject constructor(
             name = resp.record.name,
             email = resp.record.email,
         )
+        authPrefs.setStaySignedIn(stay)
         pbClient.init(authPrefs.getPbUrl(), resp.token)
     }
 

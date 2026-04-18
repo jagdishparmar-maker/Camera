@@ -11,6 +11,7 @@ import com.example.gatems.data.model.Customer
 import com.example.gatems.data.preferences.AuthPreferences
 import com.example.gatems.data.repository.CustomerRepository
 import com.example.gatems.data.repository.VehicleRepository
+import com.example.gatems.util.HapticController
 import com.example.gatems.util.toIso
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,7 @@ class AddVehicleViewModel @Inject constructor(
     private val vehicleRepo: VehicleRepository,
     private val customerRepo: CustomerRepository,
     private val authPrefs: AuthPreferences,
+    private val haptics: HapticController,
 ) : ViewModel() {
 
     // ── Wizard step (0 = Photo, 1 = Details) ──────────────────────────────────
@@ -104,8 +106,10 @@ class AddVehicleViewModel @Inject constructor(
                 mimeType       = "image/jpeg",
             )
         }.onSuccess { v ->
+            haptics.success()
             _state.value = AddVehicleState.Success(v.id)
         }.onFailure { e ->
+            haptics.error()
             _state.value = AddVehicleState.Error(e.message ?: "Failed to add vehicle")
         }
     }

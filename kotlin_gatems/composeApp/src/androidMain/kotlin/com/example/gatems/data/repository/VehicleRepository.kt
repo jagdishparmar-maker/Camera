@@ -1,7 +1,9 @@
 package com.example.gatems.data.repository
 
+import androidx.paging.PagingSource
 import com.example.gatems.data.model.Vehicle
 import com.example.gatems.data.network.PocketBaseApi
+import com.example.gatems.data.paging.VehiclesPagingSource
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -17,6 +19,27 @@ class VehicleRepository @Inject constructor(private val api: PocketBaseApi) {
 
     suspend fun getActiveVehicles(): List<Vehicle> =
         api.getFullList<Vehicle>(COLLECTION, sort = "-created", expand = EXPAND)
+
+    /**
+     * Factory for a Paging 3 source. A fresh source is returned on every call so that
+     * `Pager { pagingSource() }` can invalidate cleanly when filter/search changes.
+     */
+    fun pagingSource(
+        filter: String? = null,
+        search: String? = null,
+        sort: String = "-created",
+        perPage: Int = 25,
+    ): PagingSource<Int, Vehicle> = VehiclesPagingSource(
+        api     = api,
+        filter  = filter,
+        search  = search,
+        sort    = sort,
+        perPage = perPage,
+    )
+
+    /** Server-side count for tab badges. `filter` uses the PocketBase filter DSL. */
+    suspend fun getVehicleCount(filter: String? = null): Int =
+        api.getListCount(COLLECTION, filter = filter)
 
     suspend fun getVehicleById(id: String): Vehicle =
         api.getOne(COLLECTION, id, expand = EXPAND)

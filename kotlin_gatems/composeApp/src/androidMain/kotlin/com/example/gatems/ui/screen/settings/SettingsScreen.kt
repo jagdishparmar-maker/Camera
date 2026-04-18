@@ -14,7 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -71,7 +71,7 @@ fun SettingsScreen(
                     modifier = Modifier.size(64.dp),
                 ) {
                     Icon(
-                        Icons.Filled.Settings,
+                        Icons.Outlined.Settings,
                         contentDescription = null,
                         tint     = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(16.dp),

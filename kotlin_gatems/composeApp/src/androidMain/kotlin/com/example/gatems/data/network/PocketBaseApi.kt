@@ -140,6 +140,41 @@ class PocketBaseApi @Inject constructor(
         expand?.let { parameter("expand", it) }
     }.body()
 
+    /**
+     * Fetch a single page of records. Used by Paging 3 sources that need the raw pagination
+     * metadata (`page` / `totalPages`) to drive prev/next keys.
+     */
+    suspend inline fun <reified T> getList(
+        collection: String,
+        page: Int = 1,
+        perPage: Int = 30,
+        sort: String? = null,
+        filter: String? = null,
+        expand: String? = null,
+    ): ListResponse<T> = http.get("$base/api/collections/$collection/records") {
+        parameter("page", page)
+        parameter("perPage", perPage)
+        sort?.let   { parameter("sort", it) }
+        filter?.let { parameter("filter", it) }
+        expand?.let { parameter("expand", it) }
+    }.body()
+
+    /**
+     * Lightweight count query — fetches `perPage=1` and returns `totalItems`. Avoids streaming
+     * full records just to compute a tab badge.
+     */
+    suspend fun getListCount(
+        collection: String,
+        filter: String? = null,
+    ): Int {
+        val resp: ListResponse<JsonObject> = http.get("$base/api/collections/$collection/records") {
+            parameter("page", 1)
+            parameter("perPage", 1)
+            filter?.let { parameter("filter", it) }
+        }.body()
+        return resp.totalItems
+    }
+
     // ── Write ─────────────────────────────────────────────────────────────────
 
     suspend inline fun <reified T> create(

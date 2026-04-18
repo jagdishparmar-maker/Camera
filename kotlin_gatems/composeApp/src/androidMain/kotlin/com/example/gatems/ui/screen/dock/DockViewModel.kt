@@ -11,6 +11,7 @@ import com.example.gatems.data.model.VehicleStatus
 import com.example.gatems.data.network.RealtimeAction
 import com.example.gatems.data.network.RealtimeClient
 import com.example.gatems.data.repository.VehicleRepository
+import com.example.gatems.util.HapticController
 import com.example.gatems.util.toIso
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,7 @@ data class DockSlot(
 class DockViewModel @Inject constructor(
     private val vehicleRepo: VehicleRepository,
     private val realtimeClient: RealtimeClient,
+    private val haptics: HapticController,
 ) : ViewModel() {
 
     private val _vehicles   = MutableStateFlow<List<Vehicle>>(emptyList())
@@ -102,6 +104,10 @@ class DockViewModel @Inject constructor(
         _isRefreshing.value = true
         runCatching { vehicleRepo.getActiveVehicles() }
             .onSuccess { _vehicles.value = it }
+            .onFailure { e ->
+                _snackbar.value = e.message?.takeIf { it.isNotBlank() }
+                    ?: "Could not refresh docks"
+            }
         _isRefreshing.value = false
     }
 
@@ -120,8 +126,10 @@ class DockViewModel @Inject constructor(
                 _vehicles.update { list -> list.map { if (it.id == updated.id) updated else it } }
                 showAssignSheet = false
                 selectedVehicle = null
+                haptics.success()
                 _snackbar.value = "Assigned to Dock $assignTargetDock"
             }.onFailure {
+                haptics.error()
                 _snackbar.value = "Assign failed: ${it.message}"
                 showAssignSheet = false
             }
@@ -142,8 +150,10 @@ class DockViewModel @Inject constructor(
                 _vehicles.update { list -> list.map { if (it.id == updated.id) updated else it } }
                 showDockOutDialog = false
                 dockOutTarget     = null
+                haptics.success()
                 _snackbar.value   = "${vehicle.vehicleno} docked out"
             }.onFailure {
+                haptics.error()
                 _snackbar.value   = "Dock out failed: ${it.message}"
                 showDockOutDialog = false
             }

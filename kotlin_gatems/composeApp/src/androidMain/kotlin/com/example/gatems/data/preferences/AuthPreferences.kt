@@ -1,6 +1,7 @@
 package com.example.gatems.data.preferences
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -24,6 +25,7 @@ class AuthPreferences @Inject constructor(
         private val KEY_USER_NAME  = stringPreferencesKey("user_name")
         private val KEY_USER_EMAIL = stringPreferencesKey("user_email")
         private val KEY_PB_URL     = stringPreferencesKey("pocketbase_url")
+        private val KEY_STAY       = booleanPreferencesKey("stay_signed_in")
     }
 
     val tokenFlow: Flow<String> = context.dataStore.data.map { it[KEY_TOKEN] ?: "" }
@@ -31,6 +33,8 @@ class AuthPreferences @Inject constructor(
         it[KEY_PB_URL] ?: BuildConfig.POCKETBASE_URL
     }
     val userEmailFlow: Flow<String> = context.dataStore.data.map { it[KEY_USER_EMAIL] ?: "" }
+    /** True when the user opted into a persistent session at their last login. Default true. */
+    val staySignedInFlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_STAY] ?: true }
 
     suspend fun saveAuth(token: String, userId: String, name: String, email: String) {
         context.dataStore.edit { prefs ->
@@ -39,6 +43,18 @@ class AuthPreferences @Inject constructor(
             prefs[KEY_USER_NAME]  = name
             prefs[KEY_USER_EMAIL] = email
         }
+    }
+
+    /** Persist the "Stay signed in" preference toggled on the login screen. */
+    suspend fun setStaySignedIn(stay: Boolean) {
+        context.dataStore.edit { it[KEY_STAY] = stay }
+    }
+
+    suspend fun getStaySignedIn(): Boolean = staySignedInFlow.first()
+
+    /** Clear the auth token only — keeps email + stay preference for UX next launch. */
+    suspend fun clearToken() {
+        context.dataStore.edit { it.remove(KEY_TOKEN) }
     }
 
     suspend fun clearAuth() {

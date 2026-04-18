@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -18,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -34,11 +36,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -62,16 +67,37 @@ fun LoginScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
 
     val emailFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
 
+    // Pre-fill email from the last successful login, unless the user already typed something.
+    val savedEmail by authViewModel.userEmail.collectAsStateWithLifecycle()
+    val savedStay  by authViewModel.staySignedIn.collectAsStateWithLifecycle()
+
     var email by remember { mutableStateOf("") }
+    var emailPrefilled by remember { mutableStateOf(false) }
+    LaunchedEffect(savedEmail) {
+        if (!emailPrefilled && email.isBlank() && savedEmail.isNotBlank()) {
+            email = savedEmail
+            emailPrefilled = true
+        }
+    }
+
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var sessionBanner by remember { mutableStateOf<String?>(null) }
+    var stay by remember { mutableStateOf(true) }
+    var stayInitialized by remember { mutableStateOf(false) }
+    LaunchedEffect(savedStay) {
+        if (!stayInitialized) {
+            stay = savedStay
+            stayInitialized = true
+        }
+    }
 
     LaunchedEffect(sessionExpiredMessage) {
         val msg = sessionExpiredMessage?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
@@ -84,7 +110,7 @@ fun LoginScreen(
             scope.launch {
                 busy = true
                 error = null
-                val result = authViewModel.login(email, password)
+                val result = authViewModel.login(email, password, stay = stay)
                 busy = false
                 result
                     .onSuccess {
@@ -93,6 +119,7 @@ fun LoginScreen(
                     }
                     .onFailure { e ->
                         error = e.message?.takeIf { it.isNotBlank() } ?: "Sign in failed"
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
             }
         }
@@ -233,6 +260,23 @@ fun LoginScreen(
                     }
                 },
             )
+
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(
+                    checked = stay,
+                    onCheckedChange = { stay = it },
+                    enabled = !busy,
+                )
+                Text(
+                    text = "Stay signed in on this device",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
 
             error?.let { msg ->
                 Spacer(Modifier.height(12.dp))

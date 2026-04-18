@@ -17,10 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -150,7 +150,7 @@ fun VehicleListCard(
                     ) {
                         val isOutward = vehicle.type == "Outward"
                         Icon(
-                            imageVector        = if (isOutward) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            imageVector        = if (isOutward) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
                             contentDescription = null,
                             tint               = MaterialTheme.colorScheme.primary,
                             modifier           = Modifier.size(14.dp),
@@ -172,7 +172,7 @@ fun VehicleListCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Icon(
-                            imageVector        = Icons.Filled.DateRange,
+                            imageVector        = Icons.Outlined.DateRange,
                             contentDescription = null,
                             tint               = MaterialTheme.colorScheme.outline,
                             modifier           = Modifier.size(13.dp),
@@ -238,7 +238,7 @@ fun VehicleListCard(
                                 context.startActivity(intent)
                             },
                         ) {
-                            Icon(Icons.Filled.Phone, contentDescription = "Call", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Outlined.Phone, contentDescription = "Call", modifier = Modifier.size(18.dp))
                         }
                     }
                 }

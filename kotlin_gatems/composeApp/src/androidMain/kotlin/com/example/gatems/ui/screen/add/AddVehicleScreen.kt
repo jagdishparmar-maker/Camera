@@ -24,11 +24,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -166,7 +166,7 @@ fun AddVehicleScreen(navController: NavController) {
                     IconButton(onClick = {
                         if (viewModel.currentStep > 0) viewModel.prevStep() else navController.popBackStack()
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -260,7 +260,7 @@ private fun AddVehicleFloatingActions(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
             }
         }
         val primaryReady = canPrimary && !isLoading
@@ -280,9 +280,9 @@ private fun AddVehicleFloatingActions(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 } else if (currentStep == 0) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
                 } else {
-                    Icon(Icons.Filled.Check, contentDescription = null)
+                    Icon(Icons.Outlined.Check, contentDescription = null)
                 }
             },
             onClick = {
@@ -330,7 +330,7 @@ private fun PhotoFirstStep(
             )
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(48.dp))
+                Icon(Icons.Outlined.Add, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.height(8.dp))
                 Text("No photo selected", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -338,12 +338,12 @@ private fun PhotoFirstStep(
     }
 
     Button(onClick = onCapture, modifier = Modifier.fillMaxWidth()) {
-        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(if (imageUri == null) "Capture Photo" else "Retake Photo")
     }
     TextButton(onClick = onPickGallery, modifier = Modifier.fillMaxWidth()) {
-        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text("Select from Gallery")
     }
@@ -484,7 +484,7 @@ private fun CheckInDateTimeField(
             singleLine = true,
             modifier = Modifier.weight(1f).clickable { showDateDialog = true },
             trailingIcon = {
-                IconButton(onClick = { showDateDialog = true }) { Icon(Icons.Filled.DateRange, null) }
+                IconButton(onClick = { showDateDialog = true }) { Icon(Icons.Outlined.DateRange, null) }
             },
         )
     }

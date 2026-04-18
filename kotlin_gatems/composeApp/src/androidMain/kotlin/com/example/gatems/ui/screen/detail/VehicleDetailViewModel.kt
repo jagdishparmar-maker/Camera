@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gatems.data.model.Vehicle
 import com.example.gatems.data.repository.VehicleRepository
+import com.example.gatems.data.session.PendingActionsBus
+import com.example.gatems.util.HapticController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +23,8 @@ import com.example.gatems.util.toIso
 class VehicleDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val vehicleRepo: VehicleRepository,
+    private val pendingActions: PendingActionsBus,
+    private val haptics: HapticController,
 ) : ViewModel() {
 
     private val vehicleId: String = checkNotNull(savedStateHandle["vehicleId"])
@@ -83,17 +87,25 @@ class VehicleDetailViewModel @Inject constructor(
             _availableDocks.value = calculateAvailableDocks(updated, activeVehicles)
             _dockOccupancy.value = calculateDockOccupancy(updated, activeVehicles)
             showDockSheet = false
+            haptics.success()
         }.onFailure {
+            haptics.error()
             _actionError.value = it.message ?: "Failed to assign dock"
         }
         _isUpdatingDock.value = false
     }
 
-    fun confirmDelete() = viewModelScope.launch {
+    /**
+     * Queues a delete onto [PendingActionsBus] instead of hitting the API immediately,
+     * then pops the back stack. A list screen observer then shows a snackbar with UNDO;
+     * tapping UNDO cancels the delete, otherwise it commits after the snackbar dismisses.
+     */
+    fun confirmDelete() {
+        val vehicle = (_uiState.value as? UiState.Success)?.vehicle ?: return
         showDeleteDialog = false
-        runCatching { vehicleRepo.delete(vehicleId) }
-            .onSuccess  { _deleted.value = true }
-            .onFailure  { _actionError.value = it.message ?: "Delete failed" }
+        pendingActions.requestDelete(vehicle)
+        haptics.tick()
+        _deleted.value = true
     }
 
     fun clearError() { _actionError.value = null }

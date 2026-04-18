@@ -21,10 +21,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -118,7 +118,7 @@ fun EditVehicleScreen(navController: NavController) {
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -230,12 +230,12 @@ private fun EditForm(
                             .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Filled.Check, null, tint = Color(0xFF1A1A1A), modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.Check, null, tint = Color(0xFF1A1A1A), modifier = Modifier.size(16.dp))
                     }
                 }
             } else {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.Add, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Outlined.Add, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
                     Text("Tap to change photo", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
@@ -366,7 +366,7 @@ private fun EditForm(
             modifier  = Modifier.fillMaxWidth(),
             enabled   = viewModel.vehicleNo.isNotBlank() && viewModel.transport.isNotBlank() && viewModel.customer.isNotBlank(),
         ) {
-            Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+            Icon(Icons.Outlined.Check, null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text("Save Changes")
         }
@@ -403,7 +403,7 @@ private fun EditCheckInDateTimeField(
         modifier = Modifier.fillMaxWidth().clickable { showDateDialog = true },
         trailingIcon = {
             IconButton(onClick = { showDateDialog = true }) {
-                Icon(Icons.Filled.DateRange, null)
+                Icon(Icons.Outlined.DateRange, null)
             }
         },
     )

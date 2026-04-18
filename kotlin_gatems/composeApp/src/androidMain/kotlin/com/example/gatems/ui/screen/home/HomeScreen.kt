@@ -21,11 +21,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -70,8 +70,10 @@ import androidx.navigation.NavController
 import com.example.gatems.BuildConfig
 import com.example.gatems.data.model.Vehicle
 import com.example.gatems.data.model.VehicleStatus
+import com.example.gatems.util.SnackbarEvent
 import com.example.gatems.ui.component.CheckOutBottomSheet
 import com.example.gatems.ui.component.ConnectivityBanner
+import com.example.gatems.ui.component.ErrorState
 import com.example.gatems.ui.component.VehicleListCard
 import com.example.gatems.ui.navigation.Routes
 import kotlinx.coroutines.launch
@@ -95,13 +97,29 @@ fun HomeScreen(navController: NavController) {
     // Snackbar dispatch
     LaunchedEffect(snackbarEvent) {
         snackbarEvent?.let { evt ->
+            val duration = if (evt.actionKind == SnackbarEvent.ActionKind.UNDO_DELETE)
+                SnackbarDuration.Long else SnackbarDuration.Short
             val result = snackbarHostState.showSnackbar(
                 message     = evt.message,
                 actionLabel = evt.actionLabel,
-                duration    = SnackbarDuration.Short,
+                duration    = duration,
             )
-            if (result == SnackbarResult.ActionPerformed && evt.actionVehicleId != null) {
-                navController.navigate(Routes.vehicleDetail(evt.actionVehicleId))
+            when (evt.actionKind) {
+                SnackbarEvent.ActionKind.UNDO_DELETE -> {
+                    val id = evt.actionVehicleId
+                    if (id != null) {
+                        if (result == SnackbarResult.ActionPerformed) viewModel.cancelPendingDelete(id)
+                        else viewModel.commitPendingDelete(id)
+                    }
+                }
+                SnackbarEvent.ActionKind.RETRY_REFRESH -> if (result == SnackbarResult.ActionPerformed)
+                    viewModel.refresh()
+                SnackbarEvent.ActionKind.RETRY_LOAD    -> if (result == SnackbarResult.ActionPerformed)
+                    viewModel.loadVehicles()
+                SnackbarEvent.ActionKind.NAVIGATE_DETAIL -> if (result == SnackbarResult.ActionPerformed)
+                    evt.actionVehicleId?.let { navController.navigate(Routes.vehicleDetail(it)) }
+                null -> if (result == SnackbarResult.ActionPerformed)
+                    evt.actionVehicleId?.let { navController.navigate(Routes.vehicleDetail(it)) }
             }
             viewModel.clearSnackbar()
         }
@@ -152,7 +170,7 @@ fun HomeScreen(navController: NavController) {
                                 searchExpanded = false
                                 viewModel.setSearchQuery("")
                             }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Close search")
+                                Icon(Icons.Outlined.Close, contentDescription = "Close search")
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
@@ -196,13 +214,13 @@ fun HomeScreen(navController: NavController) {
                         },
                         actions = {
                             IconButton(onClick = { /* notifications — Phase 5 */ }) {
-                                Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                                Icon(Icons.Outlined.Notifications, contentDescription = "Notifications")
                             }
                             IconButton(onClick = { searchExpanded = true }) {
-                                Icon(Icons.Filled.Search, contentDescription = "Search")
+                                Icon(Icons.Outlined.Search, contentDescription = "Search")
                             }
                             IconButton(onClick = { /* menu — Phase 5 */ }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = "Menu")
+                                Icon(Icons.Outlined.MoreVert, contentDescription = "Menu")
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
@@ -222,7 +240,7 @@ fun HomeScreen(navController: NavController) {
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick        = { navController.navigate(Routes.ADD_VEHICLE) },
-                icon           = { Icon(Icons.Filled.Add, null) },
+                icon           = { Icon(Icons.Outlined.Add, null) },
                 text           = { Text("Add") },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor   = Color(0xFF1A1A1A),
@@ -289,19 +307,11 @@ fun HomeScreen(navController: NavController) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                is HomeUiState.Error -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text  = (uiState as HomeUiState.Error).message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            Button(onClick = viewModel::loadVehicles) { Text("Retry") }
-                        }
-                    }
-                }
+                is HomeUiState.Error -> ErrorState(
+                    message  = (uiState as HomeUiState.Error).message,
+                    onRetry  = { viewModel.loadVehicles() },
+                    modifier = Modifier.fillMaxSize(),
+                )
                 else -> {
                     HorizontalPager(
                         state    = pagerState,
@@ -413,7 +423,7 @@ private fun EmptyVehicleState(message: String, onAddVehicle: () -> Unit) {
                 onClick = onAddVehicle,
                 shape   = RoundedCornerShape(12.dp),
             ) {
-                Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
+                Icon(Icons.Outlined.Add, null, Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
                 Text("Add Vehicle")
             }
