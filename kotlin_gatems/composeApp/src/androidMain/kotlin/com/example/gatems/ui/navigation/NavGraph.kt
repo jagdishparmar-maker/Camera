@@ -96,6 +96,17 @@ private val bottomNavItems = listOf(
 @Composable
 fun GateMsNavGraph(authViewModel: AuthViewModel) {
     val rootNavController = rememberNavController()
+    val loggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
+    val navBackStackEntry by rootNavController.currentBackStackEntryAsState()
+    val currentRootRoute = navBackStackEntry?.destination?.route
+
+    LaunchedEffect(loggedIn, currentRootRoute) {
+        if (loggedIn) return@LaunchedEffect
+        if (currentRootRoute != Routes.MAIN_APP) return@LaunchedEffect
+        rootNavController.navigate(Routes.LOGIN) {
+            popUpTo(Routes.MAIN_APP) { inclusive = true }
+        }
+    }
 
     NavHost(
         navController = rootNavController,
@@ -108,8 +119,11 @@ fun GateMsNavGraph(authViewModel: AuthViewModel) {
             )
         }
         composable(Routes.LOGIN) {
+            val sessionExpired by authViewModel.sessionExpiredMessage.collectAsStateWithLifecycle()
             LoginScreen(
                 authViewModel = authViewModel,
+                sessionExpiredMessage = sessionExpired,
+                onConsumeSessionMessage = authViewModel::consumeSessionExpiredMessage,
                 onSignedIn = {
                     rootNavController.navigate(Routes.MAIN_APP) {
                         popUpTo(Routes.LOGIN) { inclusive = true }

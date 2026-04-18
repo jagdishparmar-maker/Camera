@@ -113,4 +113,8 @@ class AddVehicleViewModel @Inject constructor(
     fun clearError() {
         if (_state.value is AddVehicleState.Error) _state.value = AddVehicleState.Idle
     }
+
+    fun consumeSuccess() {
+        if (_state.value is AddVehicleState.Success) _state.value = AddVehicleState.Idle
+    }
 }

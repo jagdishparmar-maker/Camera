@@ -28,6 +28,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel,
+    sessionExpiredMessage: String?,
+    onConsumeSessionMessage: () -> Unit,
     onSignedIn: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -68,6 +71,13 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var sessionBanner by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(sessionExpiredMessage) {
+        val msg = sessionExpiredMessage?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        sessionBanner = msg
+        onConsumeSessionMessage()
+    }
 
     val submitLogin: () -> Unit = {
         if (!busy && email.isNotBlank() && password.isNotBlank()) {
@@ -77,7 +87,10 @@ fun LoginScreen(
                 val result = authViewModel.login(email, password)
                 busy = false
                 result
-                    .onSuccess { onSignedIn() }
+                    .onSuccess {
+                        sessionBanner = null
+                        onSignedIn()
+                    }
                     .onFailure { e ->
                         error = e.message?.takeIf { it.isNotBlank() } ?: "Sign in failed"
                     }
@@ -145,6 +158,18 @@ fun LoginScreen(
                     .fillMaxWidth()
                     .padding(top = 8.dp, bottom = 28.dp),
             )
+
+            sessionBanner?.let { banner ->
+                Text(
+                    text = banner,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                )
+            }
 
             TextField(
                 value = email,

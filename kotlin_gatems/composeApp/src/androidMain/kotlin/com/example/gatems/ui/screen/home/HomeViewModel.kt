@@ -79,7 +79,13 @@ class HomeViewModel @Inject constructor(
                 _allVehicles.value = vehicleRepo.getActiveVehicles()
                 _uiState.value = HomeUiState.Success
             } catch (e: Exception) {
-                if (!silent) _uiState.value = HomeUiState.Error(e.message ?: "Failed to load")
+                if (!silent) {
+                    _uiState.value = HomeUiState.Error(e.message ?: "Failed to load")
+                } else {
+                    _snackbar.value = SnackbarEvent(
+                        e.message?.takeIf { it.isNotBlank() } ?: "Could not refresh data",
+                    )
+                }
             } finally {
                 _isRefreshing.value = false
             }

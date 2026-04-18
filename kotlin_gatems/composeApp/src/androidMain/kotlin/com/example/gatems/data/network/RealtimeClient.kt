@@ -123,7 +123,12 @@ class RealtimeClient @Inject constructor(private val pbClient: PocketBaseClient)
             }
         }
 
-        val request = Request.Builder().url(url).build()
+        val request = Request.Builder()
+            .url(url)
+            .apply {
+                pbClient.bearerAuthorizationOrNull()?.let { header("Authorization", it) }
+            }
+            .build()
         val eventSource = EventSources.createFactory(okHttp).newEventSource(request, listener)
 
         awaitClose {
@@ -148,6 +153,9 @@ class RealtimeClient @Inject constructor(private val pbClient: PocketBaseClient)
                 val reqBody   = body.toRequestBody(mediaType)
                 val request   = Request.Builder()
                     .url("${pbClient.baseUrl}/api/realtime")
+                    .apply {
+                        pbClient.bearerAuthorizationOrNull()?.let { header("Authorization", it) }
+                    }
                     .post(reqBody)
                     .build()
                 okHttp.newCall(request).execute().close()

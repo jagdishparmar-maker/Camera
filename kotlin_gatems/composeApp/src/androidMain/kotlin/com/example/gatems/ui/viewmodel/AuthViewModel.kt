@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.gatems.data.network.PocketBaseApi
 import com.example.gatems.data.network.PocketBaseClient
 import com.example.gatems.data.preferences.AuthPreferences
+import com.example.gatems.data.session.SessionEventBus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,7 +23,16 @@ class AuthViewModel @Inject constructor(
     private val authPrefs: AuthPreferences,
     private val pbClient: PocketBaseClient,
     private val api: PocketBaseApi,
+    private val sessionEventBus: SessionEventBus,
 ) : ViewModel() {
+
+    /** Shown on the login screen after a forced logout (e.g. expired session). */
+    val sessionExpiredMessage = sessionEventBus.sessionExpiredMessage
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun consumeSessionExpiredMessage() {
+        sessionEventBus.consumeSessionExpiredMessage()
+    }
 
     private val _sessionReady = MutableStateFlow(false)
     val sessionReady: StateFlow<Boolean> = _sessionReady.asStateFlow()

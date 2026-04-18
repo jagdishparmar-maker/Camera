@@ -49,6 +49,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -103,15 +104,24 @@ fun AddVehicleScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(state) {
-        when (val s = state) {
-            is AddVehicleState.Success -> navController.popBackStack()
-            is AddVehicleState.Error -> {
-                snackbarHostState.showSnackbar(s.message)
-                viewModel.clearError()
-            }
-            else -> Unit
-        }
+    val successVehicleId = (state as? AddVehicleState.Success)?.vehicleId
+    LaunchedEffect(successVehicleId) {
+        if (successVehicleId == null) return@LaunchedEffect
+        val label = viewModel.vehicleNo.trim().ifBlank { successVehicleId }
+        snackbarHostState.showSnackbar(
+            message = "Vehicle $label was saved successfully.",
+            duration = SnackbarDuration.Short,
+            withDismissAction = true,
+        )
+        navController.popBackStack()
+        viewModel.consumeSuccess()
+    }
+
+    val errorMessage = (state as? AddVehicleState.Error)?.message
+    LaunchedEffect(errorMessage) {
+        val msg = errorMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Long)
+        viewModel.clearError()
     }
 
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
